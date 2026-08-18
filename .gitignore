@@ -1,0 +1,49 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+coverage
+playwright-report
+test-results
+
+# Local environment values
+.env
+.env.*
+!.env.example
+
+# Local AI assistant settings and generated work
+/.agents/
+/.claude/
+/.codex/
+/.cursor/
+/.omd/
+/AGENTS.md
+/CLAUDE.md
+/docs/design/
+
+# Other local AI tool settings
+/.aider*
+/.continue/
+/.cursorrules
+/.windsurf/
+/.windsurfrules
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?

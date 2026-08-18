@@ -1,0 +1,108 @@
+@import "tailwindcss";
+
+:root {
+  --primary: #fd7904;
+  --primary-hover: #ff8a1b;
+  --primary-pressed: #ef6c00;
+  --primary-foreground: #212124;
+  --canvas: #ffffff;
+  --customer-canvas: #fffcf8;
+  --background: #f2f3f6;
+  --surface: #f7f8fa;
+  --foreground: #212124;
+  --brand-brown: #4e2410;
+  --muted: #6b6f76;
+  --disabled: #868b94;
+  --hairline: #eaebee;
+  --brand-tint: #fff4e8;
+  --bread-cream: #fef1db;
+  --brand-link: #b84b00;
+  --critical: #d92d20;
+  --warning: #b54708;
+  --info: #1769aa;
+  --success: #137a5d;
+}
+
+@theme inline {
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-pressed: var(--primary-pressed);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-canvas: var(--canvas);
+  --color-customer-canvas: var(--customer-canvas);
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-foreground: var(--foreground);
+  --color-brand-brown: var(--brand-brown);
+  --color-muted: var(--muted);
+  --color-disabled: var(--disabled);
+  --color-hairline: var(--hairline);
+  --color-brand-tint: var(--brand-tint);
+  --color-bread-cream: var(--bread-cream);
+  --color-brand-link: var(--brand-link);
+  --color-critical: var(--critical);
+  --color-warning: var(--warning);
+  --color-info: var(--info);
+  --color-success: var(--success);
+  --font-sans:
+    system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    "Apple SD Gothic Neo", sans-serif;
+}
+
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  html {
+    min-width: 320px;
+    background: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    min-width: 320px;
+    min-height: 100svh;
+    margin: 0;
+  }
+
+  button,
+  a,
+  input,
+  select,
+  textarea {
+    touch-action: manipulation;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--foreground);
+    outline-offset: 2px;
+  }
+
+  [data-route-heading]:focus {
+    outline: none;
+  }
+
+  ::selection {
+    background: var(--bread-cream);
+    color: var(--brand-brown);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
