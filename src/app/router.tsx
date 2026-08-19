@@ -22,6 +22,17 @@ const loadHomePage = async () => {
   return { Component: HomePage }
 }
 
+const loadFavoritesPage = async () => {
+  const { FavoritesPage } = await import("../pages/customer/favorites-page")
+  return { Component: FavoritesPage }
+}
+
+const loadNotificationsPage = async () => {
+  const { NotificationsPage } =
+    await import("../pages/customer/notifications-page")
+  return { Component: NotificationsPage }
+}
+
 const loadStoreDetailPage = async () => {
   const { StoreDetailPage } =
     await import("../pages/customer/store-detail-page")
@@ -115,6 +126,8 @@ export const router = createBrowserRouter([
         Component: CustomerLayout,
         children: [
           { index: true, lazy: loadHomePage },
+          { path: "favorites", lazy: loadFavoritesPage },
+          { path: "notifications", lazy: loadNotificationsPage },
           { path: "stores/:storeId", lazy: loadStoreDetailPage },
           { path: "deals/:dealId", lazy: loadDealDetailPage },
           {

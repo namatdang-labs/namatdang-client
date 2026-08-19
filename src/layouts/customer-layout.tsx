@@ -1,6 +1,18 @@
-import { CalendarCheck, Home, Store, UserRound } from "lucide-react"
+import { useState } from "react"
+import {
+  Bell,
+  CalendarCheck,
+  Heart,
+  Home,
+  Store,
+  UserRound,
+} from "lucide-react"
 import { Link, NavLink, Outlet } from "react-router"
 
+import {
+  mockCustomerNotifications,
+  type CustomerNotificationsContext,
+} from "../features/customer/notifications-data"
 import { cn } from "../shared/lib/utils"
 import { mockUser } from "../shared/mock"
 import { Button } from "../shared/ui/button"
@@ -11,6 +23,7 @@ const managementEntryPath = mockUser.roles.includes("ROLE_OWNER")
 
 const customerNavigation = [
   { to: "/", label: "홈", icon: Home, end: true },
+  { to: "/favorites", label: "찜", icon: Heart, end: false },
   { to: "/reservations", label: "예약", icon: CalendarCheck, end: false },
   { to: "/me", label: "마이", icon: UserRound, end: false },
 ] as const
@@ -20,7 +33,7 @@ function CustomerNavigation({ mobile = false }: { mobile?: boolean }) {
     <nav
       aria-label={mobile ? "고객 하단 메뉴" : "고객 주요 메뉴"}
       className={cn(
-        mobile ? "grid grid-cols-3" : "hidden items-center gap-1 md:flex",
+        mobile ? "grid grid-cols-4" : "hidden items-center gap-1 md:flex",
       )}
     >
       {customerNavigation.map(({ to, label, icon: Icon, end }) => (
@@ -45,6 +58,33 @@ function CustomerNavigation({ mobile = false }: { mobile?: boolean }) {
 }
 
 export function CustomerLayout() {
+  const [notifications, setNotifications] = useState(mockCustomerNotifications)
+  const unreadNotificationCount = notifications.filter(
+    (notification) => !notification.isRead,
+  ).length
+
+  const markAsRead = (notificationId: string) => {
+    setNotifications((current) =>
+      current.map((notification) =>
+        notification.id === notificationId
+          ? { ...notification, isRead: true }
+          : notification,
+      ),
+    )
+  }
+
+  const markAllAsRead = () => {
+    setNotifications((current) =>
+      current.map((notification) => ({ ...notification, isRead: true })),
+    )
+  }
+
+  const notificationContext: CustomerNotificationsContext = {
+    notifications,
+    markAsRead,
+    markAllAsRead,
+  }
+
   return (
     <div className="bg-customer-canvas min-h-svh">
       <header className="border-hairline bg-canvas/95 sticky top-0 z-40 border-b backdrop-blur-sm">
@@ -65,6 +105,23 @@ export function CustomerLayout() {
 
           <div className="flex items-center gap-2">
             <CustomerNavigation />
+            <Button asChild variant="ghost" size="icon" className="relative">
+              <Link
+                to="/notifications"
+                aria-label={
+                  unreadNotificationCount > 0
+                    ? `알림 센터, 안 읽은 알림 ${unreadNotificationCount}개`
+                    : "알림 센터"
+                }
+              >
+                <Bell aria-hidden="true" />
+                {unreadNotificationCount > 0 ? (
+                  <span className="bg-critical text-canvas absolute top-1 right-1 flex size-4 items-center justify-center rounded-full text-[10px] font-bold tabular-nums">
+                    {unreadNotificationCount}
+                  </span>
+                ) : null}
+              </Link>
+            </Button>
             <Button asChild variant="low" size="compact">
               <Link to={managementEntryPath} aria-label="가게 관리">
                 <Store aria-hidden="true" />
@@ -80,7 +137,7 @@ export function CustomerLayout() {
         id="main-content"
         className="min-h-[calc(100svh-4rem)] px-4 pb-24 sm:px-6 md:pb-10"
       >
-        <Outlet />
+        <Outlet context={notificationContext} />
       </main>
 
       <div className="border-hairline bg-canvas fixed inset-x-0 bottom-0 z-40 border-t pb-[env(safe-area-inset-bottom)] md:hidden">

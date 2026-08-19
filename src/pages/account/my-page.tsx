@@ -137,7 +137,7 @@ export function MyPage() {
           </Link>
 
           <Link
-            to="/me#favorite-stores"
+            to="/favorites"
             className="border-hairline bg-canvas flex min-h-28 items-center justify-between rounded-2xl border p-5"
           >
             <span className="flex items-center gap-3">

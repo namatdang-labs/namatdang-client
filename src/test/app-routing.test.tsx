@@ -9,6 +9,8 @@ const coreScreens = [
   ["login", "/login", "다시 만나서 반가워요"],
   ["signup", "/signup", "남았당을 시작해 보세요"],
   ["home", "/", "근처의 마감 할인"],
+  ["favorites", "/favorites", "찜한 가게"],
+  ["notifications", "/notifications", "알림 센터"],
   ["store detail", "/stores/seongsu-bread-lab", "성수 빵연구소"],
   ["deal detail", "/deals/salt-bread-today", "오늘의 소금빵 모음"],
   ["reservation complete", "/reservations/complete", "예약이 완료됐어요"],
@@ -24,7 +26,7 @@ const coreScreens = [
   ["store settings", "/manage/store", "가게 정보"],
 ] as const
 
-test("16개 핵심 화면이 대표 경로에서 제목을 렌더링한다", async () => {
+test("18개 핵심 화면이 대표 경로에서 제목을 렌더링한다", async () => {
   await router.navigate(coreScreens[0][1])
   renderWithProviders(<RouterProvider router={router} />)
 
@@ -39,6 +41,74 @@ test("16개 핵심 화면이 대표 경로에서 제목을 렌더링한다", asy
     ).toBeInTheDocument()
     expect(router.state.location.pathname).toBe(path)
   }
+})
+
+test("고객 메뉴에서 찜한 가게를 열고 모두 해제하면 빈 상태를 보여준다", async () => {
+  const user = userEvent.setup()
+  await router.navigate("/")
+  renderWithProviders(<RouterProvider router={router} />)
+
+  const customerNavigation = screen.getByRole("navigation", {
+    name: "고객 주요 메뉴",
+  })
+  await user.click(
+    within(customerNavigation).getByRole("link", { name: /^찜$/ }),
+  )
+
+  expect(
+    await screen.findByRole("heading", { level: 1, name: "찜한 가게" }),
+  ).toBeInTheDocument()
+  expect(router.state.location.pathname).toBe("/favorites")
+  expect(screen.getByText("2개의 가게")).toBeInTheDocument()
+
+  await user.click(
+    screen.getByRole("button", { name: "성수 빵연구소 찜 해제" }),
+  )
+  expect(screen.getByRole("status")).toHaveTextContent(
+    "성수 빵연구소 찜을 해제했어요.",
+  )
+  expect(screen.getByText("1개의 가게")).toBeInTheDocument()
+
+  await user.click(
+    screen.getByRole("button", { name: "망원 케이크룸 찜 해제" }),
+  )
+
+  expect(
+    screen.getByRole("heading", {
+      level: 2,
+      name: "아직 찜한 가게가 없어요",
+    }),
+  ).toBeInTheDocument()
+  expect(
+    screen.getByRole("link", { name: "오늘의 할인 둘러보기" }),
+  ).toHaveAttribute("href", "/")
+})
+
+test("헤더에서 알림 센터를 열고 전체 알림을 읽음 처리한다", async () => {
+  const user = userEvent.setup()
+  await router.navigate("/")
+  renderWithProviders(<RouterProvider router={router} />)
+
+  await user.click(
+    screen.getByRole("link", { name: /^알림 센터, 안 읽은 알림 2개$/ }),
+  )
+
+  expect(
+    await screen.findByRole("heading", { level: 1, name: "알림 센터" }),
+  ).toBeInTheDocument()
+  expect(router.state.location.pathname).toBe("/notifications")
+
+  const markAllAsRead = screen.getByRole("button", { name: "전체 읽음" })
+  expect(markAllAsRead).toBeEnabled()
+  await user.click(markAllAsRead)
+
+  expect(screen.getByRole("button", { name: "모두 읽음" })).toBeDisabled()
+  expect(
+    screen.getByRole("link", { name: "알림 센터" }),
+  ).toBeInTheDocument()
+  expect(
+    screen.queryByRole("button", { name: /읽음 처리$/ }),
+  ).not.toBeInTheDocument()
 })
 
 test("할인 생성과 수정 경로는 같은 폼을 서로 다른 모드로 렌더링한다", async () => {
