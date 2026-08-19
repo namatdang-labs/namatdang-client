@@ -9,7 +9,6 @@ import { Link, NavLink, Outlet } from "react-router"
 
 import {
   ManagementStoreProvider,
-  managementStores,
   useManagementStore,
 } from "../features/management/store-context"
 import { cn } from "../shared/lib/utils"
@@ -54,7 +53,7 @@ function ManagementNavigation({ mobile = false }: { mobile?: boolean }) {
 }
 
 function StoreSwitcher({ compact = false }: { compact?: boolean }) {
-  const { store, setStoreId } = useManagementStore()
+  const { store, stores, setStoreId } = useManagementStore()
 
   return (
     <div className={cn("grid gap-2", compact && "min-w-0 flex-1")}>
@@ -70,7 +69,7 @@ function StoreSwitcher({ compact = false }: { compact?: boolean }) {
         value={store.id}
         onChange={(event) => setStoreId(event.target.value)}
       >
-        {managementStores.map((option) => (
+        {stores.map((option) => (
           <option key={option.id} value={option.id}>
             {option.name}
           </option>
@@ -148,6 +147,11 @@ export function ManagementLayout() {
             id="main-content"
             className="mx-auto w-full max-w-[1440px] px-4 py-6 lg:px-8 lg:py-8"
           >
+            <div className="border-info/30 bg-info/5 text-muted mb-6 rounded-xl border px-4 py-3 text-sm leading-6">
+              <strong className="text-foreground">현재 API 연동 범위:</strong>{" "}
+              가게 등록·조회·수정은 실서버 데이터이며, 할인·예약 화면의 수치와
+              목록은 백엔드 API가 추가되기 전까지 디자인 예시입니다.
+            </div>
             <Outlet />
           </main>
         </div>

@@ -1,10 +1,5 @@
 import type { FieldErrors, UseFormRegister } from "react-hook-form"
-import {
-  FormField,
-  ManagementPanel,
-  SelectField,
-  TextareaField,
-} from "./management-ui"
+import { FormField, ManagementPanel, TextareaField } from "./management-ui"
 import type { StoreFormValues } from "./schemas"
 
 type StoreFormFieldsProps = {
@@ -39,27 +34,14 @@ export function StoreFormFields({
             required
             {...register("name")}
           />
-          <SelectField
-            id={`${idPrefix}-category`}
-            label="가게 종류"
-            error={errors.category?.message}
-            required
-            {...register("category")}
-          >
-            <option value="">선택해 주세요</option>
-            <option value="bakery">베이커리</option>
-            <option value="dessert">디저트</option>
-            <option value="cafe">카페</option>
-            <option value="other">기타</option>
-          </SelectField>
           <FormField
             id={`${idPrefix}-phone`}
             label="가게 연락처"
             type="tel"
             inputMode="tel"
+            autoComplete="tel"
             placeholder="02-1234-5678"
             error={errors.phone?.message}
-            required
             {...register("phone")}
           />
           <TextareaField
@@ -99,45 +81,6 @@ export function StoreFormFields({
             placeholder="1층, 남았당 매장"
             error={errors.addressDetail?.message}
             {...register("addressDetail")}
-          />
-        </div>
-      </ManagementPanel>
-
-      <ManagementPanel aria-labelledby={`${idPrefix}-pickup-title`}>
-        <h2
-          id={`${idPrefix}-pickup-title`}
-          className="text-foreground text-lg font-bold"
-        >
-          기본 픽업 정보
-        </h2>
-        <p className="text-muted mt-1 text-sm leading-5">
-          할인마다 바꿀 수 있는 기본 픽업 시간과 안내예요.
-        </p>
-        <div className="mt-6 grid gap-5 sm:grid-cols-2">
-          <FormField
-            id={`${idPrefix}-pickup-start`}
-            label="픽업 시작"
-            type="time"
-            error={errors.pickupStart?.message}
-            required
-            {...register("pickupStart")}
-          />
-          <FormField
-            id={`${idPrefix}-pickup-end`}
-            label="픽업 종료"
-            type="time"
-            error={errors.pickupEnd?.message}
-            required
-            {...register("pickupEnd")}
-          />
-          <TextareaField
-            id={`${idPrefix}-pickup-guide`}
-            label="픽업 안내"
-            placeholder="매장 카운터에서 예약번호를 보여 주세요."
-            helper="찾아오는 방법이나 수령 위치를 구체적으로 적어 주세요."
-            error={errors.pickupGuide?.message}
-            className="sm:col-span-2"
-            {...register("pickupGuide")}
           />
         </div>
       </ManagementPanel>

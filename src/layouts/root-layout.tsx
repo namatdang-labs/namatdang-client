@@ -1,8 +1,75 @@
 import { useEffect } from "react"
-import { Outlet, ScrollRestoration, useLocation } from "react-router"
+import { useQueryClient } from "@tanstack/react-query"
+import {
+  Outlet,
+  ScrollRestoration,
+  useLocation,
+  useNavigate,
+} from "react-router"
+
+import {
+  ACCESS_TOKEN_STORAGE_KEY,
+  AUTHENTICATION_REQUIRED_EVENT,
+  clearAccessToken,
+} from "../features/auth/auth-session"
 
 export function RootLayout() {
-  const { pathname } = useLocation()
+  const location = useLocation()
+  const navigate = useNavigate()
+  const queryClient = useQueryClient()
+  const { pathname } = location
+
+  useEffect(() => {
+    const handleAuthenticationRequired = () => {
+      const redirectTo = `${location.pathname}${location.search}`
+      queryClient.clear()
+      void navigate(`/login?redirect=${encodeURIComponent(redirectTo)}`, {
+        replace: true,
+      })
+    }
+
+    window.addEventListener(
+      AUTHENTICATION_REQUIRED_EVENT,
+      handleAuthenticationRequired,
+    )
+
+    return () =>
+      window.removeEventListener(
+        AUTHENTICATION_REQUIRED_EVENT,
+        handleAuthenticationRequired,
+      )
+  }, [location.pathname, location.search, navigate, queryClient])
+
+  useEffect(() => {
+    const handleAccessTokenStorageChange = (event: StorageEvent) => {
+      if (event.key !== ACCESS_TOKEN_STORAGE_KEY) return
+
+      if (event.newValue) {
+        if (location.pathname === "/login") {
+          queryClient.clear()
+          void navigate("/", { replace: true })
+          return
+        }
+
+        void queryClient.resetQueries()
+        return
+      }
+
+      clearAccessToken()
+      queryClient.clear()
+
+      if (location.pathname !== "/login") {
+        const redirectTo = `${location.pathname}${location.search}`
+        void navigate(`/login?redirect=${encodeURIComponent(redirectTo)}`, {
+          replace: true,
+        })
+      }
+    }
+
+    window.addEventListener("storage", handleAccessTokenStorageChange)
+    return () =>
+      window.removeEventListener("storage", handleAccessTokenStorageChange)
+  }, [location.pathname, location.search, navigate, queryClient])
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {

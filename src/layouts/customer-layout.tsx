@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useQuery } from "@tanstack/react-query"
 import {
   Bell,
   CalendarCheck,
@@ -9,17 +9,11 @@ import {
 } from "lucide-react"
 import { Link, NavLink, Outlet } from "react-router"
 
-import {
-  mockCustomerNotifications,
-  type CustomerNotificationsContext,
-} from "../features/customer/notifications-data"
+import { unreadNotificationCountQueryOptions } from "../features/customer/customer-api"
 import { cn } from "../shared/lib/utils"
-import { mockUser } from "../shared/mock"
 import { Button } from "../shared/ui/button"
 
-const managementEntryPath = mockUser.roles.includes("ROLE_OWNER")
-  ? "/manage"
-  : "/manage/onboarding"
+const managementEntryPath = "/manage/onboarding"
 
 const customerNavigation = [
   { to: "/", label: "홈", icon: Home, end: true },
@@ -58,32 +52,8 @@ function CustomerNavigation({ mobile = false }: { mobile?: boolean }) {
 }
 
 export function CustomerLayout() {
-  const [notifications, setNotifications] = useState(mockCustomerNotifications)
-  const unreadNotificationCount = notifications.filter(
-    (notification) => !notification.isRead,
-  ).length
-
-  const markAsRead = (notificationId: string) => {
-    setNotifications((current) =>
-      current.map((notification) =>
-        notification.id === notificationId
-          ? { ...notification, isRead: true }
-          : notification,
-      ),
-    )
-  }
-
-  const markAllAsRead = () => {
-    setNotifications((current) =>
-      current.map((notification) => ({ ...notification, isRead: true })),
-    )
-  }
-
-  const notificationContext: CustomerNotificationsContext = {
-    notifications,
-    markAsRead,
-    markAllAsRead,
-  }
+  const unreadCountQuery = useQuery(unreadNotificationCountQueryOptions())
+  const unreadNotificationCount = unreadCountQuery.data?.unreadCount ?? 0
 
   return (
     <div className="bg-customer-canvas min-h-svh">
@@ -137,7 +107,7 @@ export function CustomerLayout() {
         id="main-content"
         className="min-h-[calc(100svh-4rem)] px-4 pb-24 sm:px-6 md:pb-10"
       >
-        <Outlet context={notificationContext} />
+        <Outlet />
       </main>
 
       <div className="border-hairline bg-canvas fixed inset-x-0 bottom-0 z-40 border-t pb-[env(safe-area-inset-bottom)] md:hidden">

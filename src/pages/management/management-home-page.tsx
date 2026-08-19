@@ -17,6 +17,13 @@ import { useManagementStore } from "../../features/management/store-context"
 import { useDocumentTitle } from "../../shared/lib/use-document-title"
 import { Button } from "../../shared/ui/button"
 
+const managementDateLabel = new Intl.DateTimeFormat("ko-KR", {
+  month: "long",
+  day: "numeric",
+  weekday: "long",
+  timeZone: "Asia/Seoul",
+}).format(new Date())
+
 export function ManagementHomePage() {
   useDocumentTitle("오늘 운영 현황")
   const { store } = useManagementStore()
@@ -43,14 +50,14 @@ export function ManagementHomePage() {
   return (
     <div className="space-y-6 py-6 lg:space-y-8 lg:py-8">
       <ManagementPageHeader
-        eyebrow={`8월 18일 화요일 · ${store.name}`}
+        eyebrow={`${managementDateLabel} · ${store.name}`}
         title="오늘 운영 현황"
         description="픽업할 예약과 남은 상품을 확인하고 다음 운영을 준비하세요."
         action={
           <Button asChild className="w-full sm:w-auto">
             <Link to="/manage/deals/new">
               <Plus aria-hidden="true" />
-              할인 등록하기
+              할인 폼 미리보기
             </Link>
           </Button>
         }

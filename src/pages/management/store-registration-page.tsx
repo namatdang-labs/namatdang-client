@@ -1,35 +1,30 @@
 import { zodResolver } from "@hookform/resolvers/zod"
 import { ArrowLeft, Store } from "lucide-react"
-import { useState } from "react"
 import { useForm } from "react-hook-form"
-import { Link } from "react-router"
-import {
-  FormSuccessMessage,
-  ManagementPageHeader,
-} from "../../features/management/management-ui"
+import { Link, useNavigate } from "react-router"
+import { ManagementPageHeader } from "../../features/management/management-ui"
 import {
   storeFormSchema,
   type StoreFormValues,
 } from "../../features/management/schemas"
 import { StoreFormFields } from "../../features/management/store-form-fields"
+import { useCreateOwnerStore } from "../../features/management/store-api"
+import { ApiError } from "../../shared/api/client"
 import { useDocumentTitle } from "../../shared/lib/use-document-title"
 import { Button } from "../../shared/ui/button"
 
 const emptyStoreValues: StoreFormValues = {
   name: "",
-  category: "",
   phone: "",
   address: "",
   addressDetail: "",
-  pickupStart: "18:00",
-  pickupEnd: "20:00",
-  pickupGuide: "",
   description: "",
 }
 
 export function StoreRegistrationPage() {
   useDocumentTitle("가게 등록")
-  const [saved, setSaved] = useState(false)
+  const navigate = useNavigate()
+  const createStore = useCreateOwnerStore()
   const {
     register,
     handleSubmit,
@@ -47,16 +42,34 @@ export function StoreRegistrationPage() {
         description="고객이 할인 상품을 찾고 정확한 장소에서 픽업할 수 있도록 기본 정보를 등록해 주세요."
       />
 
-      {saved ? (
-        <FormSuccessMessage>
-          가게 정보를 확인했어요. 등록을 마치면 관리 홈에서 할인을 시작할 수
-          있어요.
-        </FormSuccessMessage>
+      {createStore.error ? (
+        <p
+          className="border-critical/30 bg-critical/5 text-critical rounded-xl border px-4 py-3 text-sm"
+          role="alert"
+        >
+          {createStore.error instanceof ApiError &&
+          createStore.error.status === 409
+            ? "이미 등록된 정보와 충돌했어요. 입력 내용을 확인해 주세요."
+            : "가게를 등록하지 못했어요. 잠시 후 다시 시도해 주세요."}
+        </p>
       ) : null}
 
       <form
         noValidate
-        onSubmit={handleSubmit(() => setSaved(true))}
+        onSubmit={handleSubmit(async (values) => {
+          try {
+            await createStore.mutateAsync({
+              name: values.name,
+              address: values.address,
+              addressDetail: values.addressDetail || null,
+              phoneNumber: values.phone || null,
+              description: values.description || null,
+            })
+            await navigate("/manage", { replace: true })
+          } catch {
+            // Mutation state renders the server error above the form.
+          }
+        })}
         className="space-y-5"
       >
         <StoreFormFields
@@ -72,9 +85,14 @@ export function StoreRegistrationPage() {
               이전으로
             </Link>
           </Button>
-          <Button type="submit" disabled={isSubmitting}>
+          <Button
+            type="submit"
+            disabled={isSubmitting || createStore.isPending}
+          >
             <Store aria-hidden="true" />
-            {isSubmitting ? "등록하는 중" : "가게 등록하기"}
+            {isSubmitting || createStore.isPending
+              ? "등록하는 중"
+              : "가게 등록하기"}
           </Button>
         </div>
       </form>

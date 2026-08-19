@@ -136,7 +136,9 @@ export function ManagementReservationsPage() {
       [selectedReservation.id]: "picked-up",
     }))
     setFilter("completed")
-    setFeedback(`예약 ${selectedReservation.id}의 픽업을 완료했어요.`)
+    setFeedback(
+      `예약 ${selectedReservation.id}의 픽업 완료 상태를 미리 적용했어요.`,
+    )
   }
 
   return (
@@ -144,7 +146,7 @@ export function ManagementReservationsPage() {
       <ManagementPageHeader
         eyebrow={store.name}
         title="예약 관리"
-        description="가까운 픽업부터 확인하고 준비 상태를 관리하세요."
+        description="Reservation API 연결 전 예약 목록과 상태 변경 화면을 미리 확인하세요."
       />
 
       <ManagementPanel className="p-0 sm:p-0">
@@ -310,7 +312,7 @@ export function ManagementReservationsPage() {
                     onClick={completePickup}
                   >
                     <PackageCheck aria-hidden="true" />
-                    픽업 완료
+                    픽업 완료 상태 미리보기
                   </Button>
                 ) : (
                   <p className="text-muted mt-5 text-center text-sm">

@@ -1,5 +1,6 @@
 import { ArrowLeft, Check, Store } from "lucide-react"
-import { Link } from "react-router"
+import { Link, Navigate } from "react-router"
+import { useOwnerStores } from "../../features/management/store-api"
 import { useDocumentTitle } from "../../shared/lib/use-document-title"
 import { Button } from "../../shared/ui/button"
 
@@ -11,6 +12,11 @@ const STORE_BENEFITS = [
 
 export function ManagementOnboardingPage() {
   useDocumentTitle("가게 관리 시작하기")
+  const storesQuery = useOwnerStores()
+
+  if (storesQuery.data && storesQuery.data.length > 0) {
+    return <Navigate to="/manage" replace />
+  }
 
   return (
     <div className="mx-auto flex min-h-[calc(100svh-64px)] max-w-3xl items-center py-8 lg:min-h-svh">
@@ -27,8 +33,19 @@ export function ManagementOnboardingPage() {
           등록한 가게가 아직 없어요
         </h1>
         <p className="text-muted mt-3 max-w-xl text-base leading-7">
-          가게를 등록하면 오늘의 할인부터 픽업 예약까지 바로 관리할 수 있어요.
+          {storesQuery.isPending
+            ? "등록한 가게가 있는지 확인하고 있어요."
+            : "가게를 등록하면 오늘의 할인부터 픽업 예약까지 바로 관리할 수 있어요."}
         </p>
+
+        {storesQuery.isError ? (
+          <p
+            className="border-critical/30 bg-critical/5 text-critical mt-5 rounded-xl border px-4 py-3 text-sm"
+            role="alert"
+          >
+            가게 보유 여부를 확인하지 못했어요. 서버 연결 후 다시 시도해 주세요.
+          </p>
+        ) : null}
 
         <ul className="border-hairline mt-8 grid gap-4 border-y py-6">
           {STORE_BENEFITS.map((benefit) => (
@@ -45,7 +62,11 @@ export function ManagementOnboardingPage() {
         </ul>
 
         <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-          <Button asChild className="sm:min-w-40">
+          <Button
+            asChild
+            className="sm:min-w-40"
+            aria-disabled={storesQuery.isPending}
+          >
             <Link to="/manage/register">가게 등록하기</Link>
           </Button>
           <Button asChild variant="secondary" className="sm:min-w-40">

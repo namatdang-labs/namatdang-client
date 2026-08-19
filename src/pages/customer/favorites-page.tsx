@@ -1,66 +1,44 @@
-import { useMemo, useState } from "react"
-import {
-  ChevronRight,
-  Clock3,
-  Heart,
-  MapPin,
-  PackageOpen,
-  Store,
-} from "lucide-react"
+import { useState } from "react"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { Heart, MapPin, Phone, RefreshCw, Store } from "lucide-react"
 import { Link } from "react-router"
+
+import {
+  customerQueryKeys,
+  favoriteStoresQueryOptions,
+  isUnauthorizedError,
+  removeFavorite,
+  type StoreView,
+} from "../../features/customer/customer-api"
 import {
   CustomerPage,
   EmptyState,
   PageIntro,
 } from "../../features/customer/customer-components"
-import {
-  deals,
-  formatWon,
-  getDiscountRate,
-  stores,
-  type DealSummary,
-  type StoreSummary,
-} from "../../features/customer/customer-data"
 import { useDocumentTitle } from "../../shared/lib/use-document-title"
 import { Button } from "../../shared/ui/button"
 
-const initialFavoriteStoreIds = ["seongsu-bread-lab", "mangwon-cake-room"]
-
 function FavoriteStoreCard({
   store,
-  activeDeal,
+  isRemoving,
   onRemove,
 }: {
-  store: StoreSummary
-  activeDeal: DealSummary | undefined
-  onRemove: (store: StoreSummary) => void
+  store: StoreView
+  isRemoving: boolean
+  onRemove: (store: StoreView) => void
 }) {
   return (
     <article className="border-hairline bg-canvas overflow-hidden rounded-2xl border">
-      <div className="bg-surface relative aspect-[4/3] overflow-hidden">
-        <Link
-          to={`/stores/${store.id}`}
-          className="block h-full rounded-t-2xl"
-          aria-label={`${store.name} 가게 상세 보기`}
-        >
-          <img
-            src={store.imageUrl}
-            alt={`${store.name} 대표`}
-            className="h-full w-full object-cover transition-transform duration-150 hover:scale-[1.02] motion-reduce:transition-none"
-            loading="lazy"
-            decoding="async"
-          />
-        </Link>
-        <button
-          type="button"
-          className="bg-canvas/95 text-primary absolute top-3 right-3 inline-flex size-11 items-center justify-center rounded-full border border-white/70"
-          aria-label={`${store.name} 찜 해제`}
-          aria-pressed="true"
-          onClick={() => onRemove(store)}
-        >
-          <Heart aria-hidden="true" className="fill-primary" size={22} />
-        </button>
-      </div>
+      <Link
+        to={`/stores/${store.routeId}`}
+        className="bg-surface text-muted flex aspect-[4/3] flex-col items-center justify-center gap-3 rounded-t-2xl px-6 text-center"
+        aria-label={`${store.name} 가게 상세 보기`}
+      >
+        <span className="bg-canvas flex size-14 items-center justify-center rounded-full">
+          <Store aria-hidden="true" size={24} />
+        </span>
+        <span className="text-sm">대표 이미지를 준비하고 있어요</span>
+      </Link>
 
       <div className="p-5">
         <p className="text-brand-link flex items-center gap-2 text-sm font-semibold">
@@ -68,7 +46,7 @@ function FavoriteStoreCard({
           {store.district}
         </p>
         <Link
-          to={`/stores/${store.id}`}
+          to={`/stores/${store.routeId}`}
           className="text-foreground mt-2 block rounded text-xl font-bold"
         >
           {store.name}
@@ -76,130 +54,186 @@ function FavoriteStoreCard({
         <p className="text-muted mt-2 line-clamp-2 text-sm leading-6">
           {store.description}
         </p>
-        <p className="text-muted mt-4 flex items-center gap-2 text-sm">
-          <Clock3 aria-hidden="true" size={18} />
-          {store.openHours}
+        <p className="text-muted mt-4 flex min-h-6 items-center gap-2 text-sm">
+          <Phone aria-hidden="true" size={18} />
+          {store.phoneNumber ?? "전화번호를 준비하고 있어요"}
         </p>
 
-        {activeDeal ? (
-          <div className="bg-brand-tint mt-5 rounded-xl p-4">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-brand-brown text-xs font-semibold">
-                  오늘 예약 가능
-                </p>
-                <Link
-                  to={`/deals/${activeDeal.id}`}
-                  className="text-foreground mt-1 block truncate rounded font-bold"
-                >
-                  {activeDeal.title}
-                </Link>
-              </div>
-              <p className="text-brand-link shrink-0 text-sm font-bold">
-                {getDiscountRate(
-                  activeDeal.originalPrice,
-                  activeDeal.salePrice,
-                )}
-                % 할인
-              </p>
-            </div>
-            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-sm">
-              <p className="text-foreground font-bold tabular-nums">
-                {formatWon(activeDeal.salePrice)}
-              </p>
-              <p className="text-warning flex items-center gap-1 font-semibold">
-                <PackageOpen aria-hidden="true" size={17} />
-                {activeDeal.stock}개 남음
-              </p>
-            </div>
-            <Button asChild variant="secondary" className="mt-4 w-full">
-              <Link to={`/deals/${activeDeal.id}`}>
-                할인 상세 보기
-                <ChevronRight aria-hidden="true" />
-              </Link>
-            </Button>
-          </div>
-        ) : (
-          <div className="bg-surface text-muted mt-5 rounded-xl p-4 text-sm leading-6">
-            오늘 예약 가능한 할인이 아직 없어요.
-          </div>
-        )}
+        <div className="bg-surface text-muted mt-5 rounded-xl p-4 text-sm leading-6">
+          할인 정보는 아직 서버에서 제공하지 않아요. 가게 정보는 상세 화면에서
+          확인할 수 있어요.
+        </div>
 
-        <Link
-          to={`/stores/${store.id}`}
-          className="border-hairline text-muted mt-4 flex min-h-11 items-center justify-between border-t pt-3 text-sm font-medium"
-        >
-          <span className="flex items-center gap-2">
-            <Store aria-hidden="true" size={18} />
-            가게 정보 보기
-          </span>
-          <ChevronRight aria-hidden="true" size={18} />
-        </Link>
+        <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+          <Button asChild variant="secondary" className="flex-1">
+            <Link to={`/stores/${store.routeId}`}>가게 정보 보기</Link>
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            className="flex-1"
+            aria-label={`${store.name} 찜 해제`}
+            disabled={isRemoving}
+            onClick={() => onRemove(store)}
+          >
+            <Heart aria-hidden="true" className="fill-primary text-primary" />
+            {isRemoving ? "찜 해제 중" : "찜 해제"}
+          </Button>
+        </div>
       </div>
     </article>
   )
 }
 
+function FavoriteGridSkeleton() {
+  return (
+    <div
+      className="grid gap-5 sm:grid-cols-2 lg:gap-6"
+      aria-label="찜한 가게를 불러오는 중"
+      aria-busy="true"
+    >
+      {[0, 1].map((index) => (
+        <div
+          key={index}
+          className="border-hairline bg-canvas overflow-hidden rounded-2xl border"
+        >
+          <div className="bg-surface aspect-[4/3] animate-pulse motion-reduce:animate-none" />
+          <div className="grid gap-3 p-5">
+            <span className="bg-surface h-4 w-1/3 animate-pulse rounded motion-reduce:animate-none" />
+            <span className="bg-surface h-7 w-2/3 animate-pulse rounded motion-reduce:animate-none" />
+            <span className="bg-surface h-4 w-full animate-pulse rounded motion-reduce:animate-none" />
+            <span className="bg-surface h-11 w-full animate-pulse rounded-xl motion-reduce:animate-none" />
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 export function FavoritesPage() {
   useDocumentTitle("찜한 가게")
-  const [favoriteStoreIds, setFavoriteStoreIds] = useState(
-    initialFavoriteStoreIds,
-  )
-  const [removeNotice, setRemoveNotice] = useState("")
+  const queryClient = useQueryClient()
+  const favoritesQuery = useQuery(favoriteStoresQueryOptions())
+  const [notice, setNotice] = useState("")
+  const [mutationError, setMutationError] = useState("")
 
-  const favoriteStores = useMemo(
-    () => stores.filter((store) => favoriteStoreIds.includes(store.id)),
-    [favoriteStoreIds],
-  )
+  const removeMutation = useMutation({
+    mutationFn: (store: StoreView) => removeFavorite(store.id),
+    onMutate: () => {
+      setMutationError("")
+    },
+    onSuccess: async (_data, removedStore) => {
+      queryClient.setQueryData<StoreView[]>(
+        customerQueryKeys.favorites,
+        (current) =>
+          current?.filter((store) => store.id !== removedStore.id) ?? [],
+      )
+      setNotice(`${removedStore.name} 찜을 해제했어요.`)
+      await queryClient.invalidateQueries({
+        queryKey: customerQueryKeys.favorites,
+      })
+    },
+    onError: (error) => {
+      setMutationError(
+        isUnauthorizedError(error)
+          ? "로그인이 만료되어 찜을 해제하지 못했어요. 다시 로그인해 주세요."
+          : "찜을 해제하지 못했어요. 잠시 후 다시 시도해 주세요.",
+      )
+    },
+  })
 
-  const removeFavorite = (store: StoreSummary) => {
-    setFavoriteStoreIds((current) =>
-      current.filter((storeId) => storeId !== store.id),
-    )
-    setRemoveNotice(`${store.name} 찜을 해제했어요.`)
-  }
+  const favoriteStores = favoritesQuery.data ?? []
+  const unauthorized = isUnauthorizedError(favoritesQuery.error)
 
   return (
     <CustomerPage>
       <PageIntro
         eyebrow="다시 만나고 싶은 곳"
         title="찜한 가게"
-        description="관심 있는 가게의 오늘 할인을 모아보고 바로 예약해 보세요."
+        description="관심 있는 가게를 모아보고 상세 정보를 확인해 보세요."
       />
 
       <div className="mb-4 flex items-center justify-between gap-4">
         <h2 className="text-foreground text-lg font-bold">내 찜 목록</h2>
-        <p className="text-muted text-sm" aria-live="polite">
-          {favoriteStores.length}개의 가게
-        </p>
+        {!favoritesQuery.isPending && !favoritesQuery.isError ? (
+          <p className="text-muted text-sm" aria-live="polite">
+            {favoriteStores.length}개의 가게
+          </p>
+        ) : null}
       </div>
 
       <p className="sr-only" role="status" aria-live="polite">
-        {removeNotice}
+        {notice}
       </p>
+      {mutationError ? (
+        <p
+          className="border-critical/20 bg-canvas text-critical mb-4 rounded-xl border px-4 py-3 text-sm"
+          role="alert"
+        >
+          {mutationError}
+        </p>
+      ) : null}
 
-      {favoriteStores.length > 0 ? (
+      {favoritesQuery.isPending ? <FavoriteGridSkeleton /> : null}
+
+      {favoritesQuery.isError ? (
+        <EmptyState
+          title={
+            unauthorized
+              ? "찜한 가게를 보려면 로그인이 필요해요"
+              : "찜한 가게를 불러오지 못했어요"
+          }
+          description={
+            unauthorized
+              ? "로그인한 뒤 저장한 가게를 다시 확인할 수 있어요."
+              : "연결 상태를 확인한 뒤 다시 불러와 주세요."
+          }
+          action={
+            unauthorized ? (
+              <Button asChild>
+                <Link to="/login">로그인하기</Link>
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => void favoritesQuery.refetch()}
+              >
+                <RefreshCw aria-hidden="true" />
+                다시 불러오기
+              </Button>
+            )
+          }
+        />
+      ) : null}
+
+      {favoritesQuery.isSuccess && favoriteStores.length > 0 ? (
         <div className="grid gap-5 sm:grid-cols-2 lg:gap-6">
           {favoriteStores.map((store) => (
             <FavoriteStoreCard
               key={store.id}
               store={store}
-              activeDeal={deals.find((deal) => deal.storeId === store.id)}
-              onRemove={removeFavorite}
+              isRemoving={
+                removeMutation.isPending &&
+                removeMutation.variables.id === store.id
+              }
+              onRemove={(selectedStore) => removeMutation.mutate(selectedStore)}
             />
           ))}
         </div>
-      ) : (
+      ) : null}
+
+      {favoritesQuery.isSuccess && favoriteStores.length === 0 ? (
         <EmptyState
           title="아직 찜한 가게가 없어요"
-          description="마음에 드는 가게를 찜해 두면 오늘의 할인을 빠르게 확인할 수 있어요."
+          description="마음에 드는 가게를 찜해 두면 이곳에서 다시 확인할 수 있어요."
           action={
             <Button asChild>
-              <Link to="/">오늘의 할인 둘러보기</Link>
+              <Link to="/">가게 둘러보기</Link>
             </Button>
           }
         />
-      )}
+      ) : null}
     </CustomerPage>
   )
 }

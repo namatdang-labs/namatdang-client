@@ -48,12 +48,12 @@ export function ManagementDealsPage() {
       <ManagementPageHeader
         eyebrow={store.name}
         title="할인 관리"
-        description="공개한 할인과 재고, 예약 수량을 확인하세요."
+        description="백엔드 연결 전 할인 목록과 재고 관리 화면을 미리 확인하세요."
         action={
           <Button asChild className="w-full sm:w-auto">
             <Link to="/manage/deals/new">
               <Plus aria-hidden="true" />
-              할인 등록하기
+              할인 폼 미리보기
             </Link>
           </Button>
         }
@@ -86,7 +86,7 @@ export function ManagementDealsPage() {
           <EmptyState
             title="이 상태의 할인이 없어요"
             description="오늘 남은 상품이 있다면 새 할인을 등록해 보세요."
-            actionLabel="할인 등록하기"
+            actionLabel="할인 폼 미리보기"
             actionTo="/manage/deals/new"
           />
         ) : (

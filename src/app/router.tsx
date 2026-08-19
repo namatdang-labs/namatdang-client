@@ -6,6 +6,7 @@ import { ManagementSetupLayout } from "../layouts/management-setup-layout"
 import { RootLayout } from "../layouts/root-layout"
 import { RouteErrorBoundary } from "../pages/system/route-error-boundary"
 import { RouteLoadingFallback } from "../pages/system/route-loading-fallback"
+import { requireAuthentication } from "./auth-loader"
 
 const loadLoginPage = async () => {
   const { LoginPage } = await import("../pages/auth/login-page")
@@ -124,6 +125,7 @@ export const router = createBrowserRouter([
       },
       {
         Component: CustomerLayout,
+        loader: requireAuthentication,
         children: [
           { index: true, lazy: loadHomePage },
           { path: "favorites", lazy: loadFavoritesPage },
@@ -144,6 +146,7 @@ export const router = createBrowserRouter([
       },
       {
         Component: ManagementSetupLayout,
+        loader: requireAuthentication,
         children: [
           {
             path: "manage/onboarding",
@@ -155,6 +158,7 @@ export const router = createBrowserRouter([
       {
         path: "manage",
         Component: ManagementLayout,
+        loader: requireAuthentication,
         children: [
           { index: true, lazy: loadManagementHomePage },
           { path: "deals", lazy: loadManagementDealsPage },

@@ -181,14 +181,12 @@ export function DealFormPage() {
       <ManagementPageHeader
         eyebrow={`${store.name} · 할인 관리`}
         title={pageTitle}
-        description="가격과 수량, 픽업 시간을 확인한 뒤 오늘의 할인을 공개하세요."
+        description="Deal API 연결 전 가격·수량·픽업 입력과 미리보기 상태를 확인하세요."
       />
 
       {savedFormKey === formKey ? (
         <FormSuccessMessage>
-          {isEditing
-            ? "할인 정보를 저장했어요."
-            : "할인을 공개할 준비가 됐어요."}
+          입력 상태를 화면에서 확인했어요. 서버에는 저장되지 않아요.
         </FormSuccessMessage>
       ) : null}
 
@@ -451,10 +449,10 @@ export function DealFormPage() {
                 <Tag aria-hidden="true" />
               )}
               {isSubmitting
-                ? "저장하는 중"
+                ? "확인하는 중"
                 : isEditing
-                  ? "변경 내용 저장"
-                  : "할인 공개"}
+                  ? "변경 상태 미리보기"
+                  : "입력 상태 미리보기"}
             </Button>
           </div>
         </aside>
