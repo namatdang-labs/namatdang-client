@@ -17,7 +17,7 @@ function renderAuthRoute(initialEntry: string) {
     [
       { path: "/login", element: <LoginPage /> },
       { path: "/signup", element: <SignupPage /> },
-      { path: "/", element: <h1>고객 홈</h1> },
+      { path: "/app", element: <h1>고객 홈</h1> },
       { path: "/reservations", element: <h1>내 예약</h1> },
     ],
     { initialEntries: [initialEntry] },
@@ -110,7 +110,7 @@ test.each([
     expect(
       await screen.findByRole("heading", { level: 1, name: "고객 홈" }),
     ).toBeInTheDocument()
-    expect(router.state.location.pathname).toBe("/")
+    expect(router.state.location.pathname).toBe("/app")
   },
 )
 
@@ -142,7 +142,7 @@ test("로그인 실패 시 서버가 제공한 한국어 안내를 보여준다"
   )
 })
 
-test("회원가입은 전화번호를 포함하고 role 없이 전송한 뒤 로그인으로 이동한다", async () => {
+test("회원가입은 role 없이 전송하고 요청했던 로그인 이동 경로를 유지한다", async () => {
   const user = userEvent.setup()
   const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
     new Response(
@@ -157,7 +157,12 @@ test("회원가입은 전화번호를 포함하고 role 없이 전송한 뒤 로
     ),
   )
   vi.stubGlobal("fetch", fetchMock)
-  renderAuthRoute("/signup")
+  const { router } = renderAuthRoute("/signup?redirect=%2Fmanage%2Fonboarding")
+
+  expect(screen.getByRole("link", { name: "로그인" })).toHaveAttribute(
+    "href",
+    "/login?redirect=%2Fmanage%2Fonboarding",
+  )
 
   await user.type(screen.getByRole("textbox", { name: "이름" }), "신규회원")
   await user.type(
@@ -181,6 +186,10 @@ test("회원가입은 전화번호를 포함하고 role 없이 전송한 뒤 로
       name: "",
     }),
   ).toHaveTextContent("회원가입이 완료됐어요. 로그인해 주세요.")
+  expect(router.state.location.pathname).toBe("/login")
+  expect(router.state.location.search).toBe(
+    "?joined=1&redirect=%2Fmanage%2Fonboarding",
+  )
 
   const [, init] = fetchMock.mock.calls[0]
   expect(JSON.parse(String(init?.body))).toEqual({

@@ -110,7 +110,7 @@ export function ManagementLayout() {
             size="compact"
             className="mt-auto justify-start"
           >
-            <Link to="/">
+            <Link to="/app">
               <ArrowLeft aria-hidden="true" />
               고객 화면으로
             </Link>
@@ -135,7 +135,7 @@ export function ManagementLayout() {
               </Link>
               <StoreSwitcher compact />
               <Button asChild variant="ghost" size="icon">
-                <Link to="/" aria-label="고객 화면으로 돌아가기">
+                <Link to="/app" aria-label="고객 화면으로 돌아가기">
                   <ArrowLeft aria-hidden="true" />
                 </Link>
               </Button>

@@ -30,7 +30,13 @@ const loginSchema = z.object({
 type LoginValues = z.infer<typeof loginSchema>
 
 function getSafeRedirect(searchParams: URLSearchParams) {
-  return getSafeInternalPath(searchParams.get("redirect"), "/")
+  return getSafeInternalPath(searchParams.get("redirect"), "/app")
+}
+
+function getSignupPath(searchParams: URLSearchParams) {
+  if (!searchParams.has("redirect")) return "/signup"
+
+  return `/signup?redirect=${encodeURIComponent(getSafeRedirect(searchParams))}`
 }
 
 export function LoginPage() {
@@ -188,7 +194,7 @@ export function LoginPage() {
       <p className="text-muted mt-7 text-center text-sm">
         아직 계정이 없나요?{" "}
         <Link
-          to="/signup"
+          to={getSignupPath(searchParams)}
           className="text-brand-link inline-flex min-h-11 items-center rounded-lg px-1 font-semibold"
         >
           회원가입

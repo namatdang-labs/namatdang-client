@@ -3,9 +3,63 @@ import { expect, test } from "@playwright/test"
 import { FUTURE_ACCESS_TOKEN } from "../src/test/auth-token"
 import { installMockApi } from "./mock-api"
 
+test("방문자가 공개 랜딩에서 서비스 소개를 보고 회원가입으로 이동한다", async ({
+  page,
+}) => {
+  const pageErrors: Error[] = []
+  page.on("pageerror", (error) => pageErrors.push(error))
+  await page.goto("/", { waitUntil: "domcontentloaded" })
+
+  await expect(
+    page.getByRole("heading", {
+      level: 1,
+      name: "마감 재고를 판매 기회로, 첫 방문을 단골로.",
+    }),
+  ).toBeVisible()
+  await expect(
+    page.getByRole("heading", {
+      level: 2,
+      name: "발견부터 픽업까지, 오늘 안에",
+    }),
+  ).toBeVisible()
+  await expect(page.getByRole("link", { name: "로그인" })).toBeVisible()
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBe(true)
+
+  await page.getByRole("tab", { name: "02 예약" }).click()
+  await expect(
+    page.getByRole("heading", {
+      level: 3,
+      name: "원하는 상품을 미리 예약해요",
+    }),
+  ).toBeVisible()
+
+  await page
+    .getByRole("heading", {
+      level: 2,
+      name: "넓은 화면에서 운영 흐름을 더 선명하게",
+    })
+    .scrollIntoViewIfNeeded()
+  expect(
+    await page
+      .locator("header")
+      .evaluate((header) => Math.round(header.getBoundingClientRect().top)),
+  ).toBe(0)
+
+  await page.getByRole("link", { name: "지금 사용해보기" }).click()
+  await expect(page).toHaveURL(/\/signup$/)
+  await expect(
+    page.getByRole("heading", { level: 1, name: "남았당을 시작해 보세요" }),
+  ).toBeVisible()
+  expect(pageErrors).toEqual([])
+})
+
 test("고객이 품목 수량을 고르고 예약을 완료한다", async ({ page }) => {
   const api = await installMockApi(page)
-  await page.goto("/", { waitUntil: "domcontentloaded" })
+  await page.goto("/app", { waitUntil: "domcontentloaded" })
 
   await expect(
     page.getByRole("heading", { level: 1, name: "근처의 마감 할인" }),
@@ -40,7 +94,7 @@ test("고객이 품목 수량을 고르고 예약을 완료한다", async ({ pag
 
 test("고객이 API 찜 목록을 정리하고 알림을 모두 읽는다", async ({ page }) => {
   const api = await installMockApi(page)
-  await page.goto("/", { waitUntil: "domcontentloaded" })
+  await page.goto("/app", { waitUntil: "domcontentloaded" })
 
   await page.getByRole("link", { name: "찜", exact: true }).click()
   await expect(page).toHaveURL(/\/favorites$/)
@@ -72,7 +126,7 @@ test("고객이 API 찜 목록을 정리하고 알림을 모두 읽는다", asyn
 
 test("일반 회원이 가게를 등록하고 관리 화면으로 진입한다", async ({ page }) => {
   const api = await installMockApi(page, { hasOwnerStore: false })
-  await page.goto("/", { waitUntil: "domcontentloaded" })
+  await page.goto("/app", { waitUntil: "domcontentloaded" })
 
   await page.getByRole("link", { name: "가게 관리" }).click()
   await expect(page).toHaveURL(/\/manage\/onboarding$/)
@@ -115,7 +169,7 @@ test("일반 회원이 가게를 등록하고 관리 화면으로 진입한다",
 
 test("가게 관리자가 고객 화면과 관리 예약 화면을 오간다", async ({ page }) => {
   await installMockApi(page)
-  await page.goto("/", { waitUntil: "domcontentloaded" })
+  await page.goto("/app", { waitUntil: "domcontentloaded" })
 
   await page.getByRole("link", { name: "가게 관리" }).click()
   await expect(page).toHaveURL(/\/manage$/)
@@ -132,7 +186,7 @@ test("가게 관리자가 고객 화면과 관리 예약 화면을 오간다", a
     .getByRole("link", { name: /^고객 화면(으로|으로 돌아가기)$/ })
     .click()
 
-  await expect(page).toHaveURL(/\/$/)
+  await expect(page).toHaveURL(/\/app$/)
   await expect(
     page.getByRole("heading", { level: 1, name: "근처의 마감 할인" }),
   ).toBeVisible()

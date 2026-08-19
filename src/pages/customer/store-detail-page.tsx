@@ -402,7 +402,7 @@ export function StoreDetailPage() {
               </Button>
             ) : notFound ? (
               <Button asChild variant="secondary">
-                <Link to="/">가게 둘러보기</Link>
+                <Link to="/app">가게 둘러보기</Link>
               </Button>
             ) : (
               <Button

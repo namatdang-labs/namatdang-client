@@ -20,9 +20,10 @@ import {
 import { renderWithProviders } from "./render"
 
 const coreScreens = [
+  ["landing", "/", "마감 재고를 판매 기회로, 첫 방문을 단골로."],
   ["login", "/login", "다시 만나서 반가워요"],
   ["signup", "/signup", "남았당을 시작해 보세요"],
-  ["home", "/", "근처의 마감 할인"],
+  ["home", "/app", "근처의 마감 할인"],
   ["favorites", "/favorites", "찜한 가게"],
   ["notifications", "/notifications", "알림 센터"],
   ["store detail", "/stores/101", "성수 빵연구소"],
@@ -61,7 +62,7 @@ async function renderApp(path: string) {
   return renderWithProviders(<RouterProvider router={router} />)
 }
 
-test("JWT 세션과 mock API로 18개 핵심 화면을 대표 경로에서 렌더링한다", async () => {
+test("공개 랜딩을 포함한 19개 핵심 화면을 대표 경로에서 렌더링한다", async () => {
   apiState.ownerStores = []
   const { queryClient } = await renderApp(coreScreens[0][1])
 
@@ -90,6 +91,63 @@ test("JWT 세션과 mock API로 18개 핵심 화면을 대표 경로에서 렌�
           authorization === `Bearer ${FUTURE_ACCESS_TOKEN}`,
       ),
   ).toBe(true)
+})
+
+test("토큰 없이 공개 랜딩을 보고 시작하기와 로그인 경로를 선택할 수 있다", async () => {
+  clearAccessToken()
+  window.localStorage.clear()
+  const user = userEvent.setup()
+
+  await renderApp("/")
+
+  expect(
+    await screen.findByRole("heading", {
+      level: 1,
+      name: "마감 재고를 판매 기회로, 첫 방문을 단골로.",
+    }),
+  ).toBeInTheDocument()
+  expect(router.state.location.pathname).toBe("/")
+  expect(screen.getByRole("link", { name: "로그인" })).toHaveAttribute(
+    "href",
+    "/login",
+  )
+  for (const tab of screen.getAllByRole("tab")) {
+    expect(
+      document.getElementById(tab.getAttribute("aria-controls") ?? ""),
+    ).not.toBeNull()
+  }
+
+  await user.click(screen.getByRole("link", { name: "지금 사용해보기" }))
+  expect(
+    await screen.findByRole("heading", {
+      level: 1,
+      name: "남았당을 시작해 보세요",
+    }),
+  ).toBeInTheDocument()
+  expect(router.state.location.pathname).toBe("/signup")
+})
+
+test("다른 탭에서 로그인하면 로그인 화면이 기억한 경로로 이동한다", async () => {
+  clearAccessToken()
+  window.localStorage.clear()
+  await renderApp("/login?redirect=%2Ffavorites")
+
+  act(() => {
+    saveAccessToken(FUTURE_ACCESS_TOKEN)
+    window.dispatchEvent(
+      new StorageEvent("storage", {
+        key: ACCESS_TOKEN_STORAGE_KEY,
+        oldValue: null,
+        newValue: FUTURE_ACCESS_TOKEN,
+        storageArea: window.localStorage,
+      }),
+    )
+  })
+
+  expect(
+    await screen.findByRole("heading", { level: 1, name: "찜한 가게" }),
+  ).toBeInTheDocument()
+  expect(router.state.location.pathname).toBe("/favorites")
 })
 
 test.each([
@@ -147,7 +205,7 @@ test("다른 탭에서 로그아웃하면 캐시를 비우고 현재 경로를 �
 
 test("고객이 API 찜 목록에서 두 가게를 해제하면 서버 상태와 빈 화면이 같이 바뀐다", async () => {
   const user = userEvent.setup()
-  await renderApp("/")
+  await renderApp("/app")
 
   const customerNavigation = screen.getByRole("navigation", {
     name: "고객 주요 메뉴",
@@ -187,7 +245,7 @@ test("고객이 API 찜 목록에서 두 가게를 해제하면 서버 상태와
 
 test("헤더에서 API 알림 센터를 열고 안 읽은 알림을 모두 읽음 처리한다", async () => {
   const user = userEvent.setup()
-  await renderApp("/")
+  await renderApp("/app")
 
   await user.click(await screen.findByRole("link", { name: /^알림 센터/ }))
 
@@ -296,7 +354,7 @@ test("가게 설정은 owner-store의 phoneNumber를 연락처 입력값으로 �
 
 test("홈에서 품목 수량을 고르고 확인한 뒤 예약을 완료한다", async () => {
   const user = userEvent.setup()
-  await renderApp("/")
+  await renderApp("/app")
 
   await user.click(
     screen.getByRole("link", {

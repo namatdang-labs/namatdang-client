@@ -12,6 +12,24 @@ import {
   AUTHENTICATION_REQUIRED_EVENT,
   clearAccessToken,
 } from "../features/auth/auth-session"
+import { getSafeInternalPath } from "../shared/lib/safe-internal-path"
+
+const authenticatedRoutePrefixes = [
+  "/app",
+  "/favorites",
+  "/notifications",
+  "/stores",
+  "/deals",
+  "/reservations",
+  "/me",
+  "/manage",
+] as const
+
+function isAuthenticatedRoute(pathname: string) {
+  return authenticatedRoutePrefixes.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+  )
+}
 
 export function RootLayout() {
   const location = useLocation()
@@ -45,9 +63,13 @@ export function RootLayout() {
       if (event.key !== ACCESS_TOKEN_STORAGE_KEY) return
 
       if (event.newValue) {
-        if (location.pathname === "/login") {
+        if (location.pathname === "/login" || location.pathname === "/signup") {
           queryClient.clear()
-          void navigate("/", { replace: true })
+          const redirectTo = getSafeInternalPath(
+            new URLSearchParams(location.search).get("redirect"),
+            "/app",
+          )
+          void navigate(redirectTo, { replace: true })
           return
         }
 
@@ -58,7 +80,7 @@ export function RootLayout() {
       clearAccessToken()
       queryClient.clear()
 
-      if (location.pathname !== "/login") {
+      if (isAuthenticatedRoute(location.pathname)) {
         const redirectTo = `${location.pathname}${location.search}`
         void navigate(`/login?redirect=${encodeURIComponent(redirectTo)}`, {
           replace: true,
@@ -86,7 +108,7 @@ export function RootLayout() {
     <>
       <a
         href="#main-content"
-        className="bg-foreground text-canvas fixed top-4 left-4 z-50 -translate-y-24 rounded-lg px-4 py-3 text-sm font-semibold transition-transform duration-150 focus:translate-y-0 motion-reduce:transition-none"
+        className="bg-foreground text-canvas fixed top-4 left-4 z-[60] -translate-y-24 rounded-lg px-4 py-3 text-sm font-semibold transition-transform duration-150 focus:translate-y-0 motion-reduce:transition-none"
       >
         본문 바로가기
       </a>

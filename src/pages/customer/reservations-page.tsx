@@ -108,7 +108,7 @@ export function ReservationsPage() {
           description="다른 상태를 선택하거나 오늘 예약할 수 있는 할인을 둘러보세요."
           action={
             <Button asChild variant="secondary">
-              <Link to="/">오늘의 할인 보기</Link>
+              <Link to="/app">오늘의 할인 보기</Link>
             </Button>
           }
         />

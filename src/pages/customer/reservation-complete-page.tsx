@@ -178,7 +178,7 @@ export function ReservationCompletePage() {
             )}
           </Button>
           <Button asChild variant="secondary">
-            <Link to="/">홈으로 가기</Link>
+            <Link to="/app">홈으로 가기</Link>
           </Button>
         </div>
       </section>

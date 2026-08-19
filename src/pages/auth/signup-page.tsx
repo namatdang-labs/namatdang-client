@@ -2,7 +2,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { useMutation } from "@tanstack/react-query"
 import { UserPlus } from "lucide-react"
 import { useForm } from "react-hook-form"
-import { Link, useNavigate } from "react-router"
+import { Link, useNavigate, useSearchParams } from "react-router"
 import { z } from "zod"
 import { signup } from "../../features/auth/auth-api"
 import { getAuthErrorMessage } from "../../features/auth/auth-errors"
@@ -11,6 +11,7 @@ import {
   authInputClass,
   FieldMessage,
 } from "../../features/auth/auth-shell"
+import { getSafeInternalPath } from "../../shared/lib/safe-internal-path"
 import { useDocumentTitle } from "../../shared/lib/use-document-title"
 import { Button } from "../../shared/ui/button"
 
@@ -49,10 +50,20 @@ type SignupValues = z.infer<typeof signupSchema>
 export function SignupPage() {
   useDocumentTitle("회원가입")
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const requestedRedirect = searchParams.get("redirect")
+  const safeRedirect = getSafeInternalPath(requestedRedirect, "/app")
+  const loginPath = requestedRedirect
+    ? `/login?redirect=${encodeURIComponent(safeRedirect)}`
+    : "/login"
   const signupMutation = useMutation({
     mutationFn: signup,
     onSuccess: () => {
-      navigate("/login?joined=1", { replace: true })
+      const loginSearchParams = new URLSearchParams({ joined: "1" })
+      if (requestedRedirect) {
+        loginSearchParams.set("redirect", safeRedirect)
+      }
+      navigate(`/login?${loginSearchParams.toString()}`, { replace: true })
     },
   })
   const {
@@ -262,7 +273,7 @@ export function SignupPage() {
       <p className="text-muted mt-7 text-center text-sm">
         이미 계정이 있나요?{" "}
         <Link
-          to="/login"
+          to={loginPath}
           className="text-brand-link inline-flex min-h-11 items-center rounded-lg px-1 font-semibold"
         >
           로그인

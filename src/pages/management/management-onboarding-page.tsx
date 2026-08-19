@@ -70,7 +70,7 @@ export function ManagementOnboardingPage() {
             <Link to="/manage/register">가게 등록하기</Link>
           </Button>
           <Button asChild variant="secondary" className="sm:min-w-40">
-            <Link to="/">
+            <Link to="/app">
               <ArrowLeft aria-hidden="true" />
               고객 화면으로
             </Link>

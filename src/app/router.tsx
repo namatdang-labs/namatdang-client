@@ -18,6 +18,11 @@ const loadSignupPage = async () => {
   return { Component: SignupPage }
 }
 
+const loadLandingPage = async () => {
+  const { LandingPage } = await import("../pages/landing/landing-page")
+  return { Component: LandingPage }
+}
+
 const loadHomePage = async () => {
   const { HomePage } = await import("../pages/customer/home-page")
   return { Component: HomePage }
@@ -116,6 +121,7 @@ export const router = createBrowserRouter([
     ErrorBoundary: RouteErrorBoundary,
     HydrateFallback: RouteLoadingFallback,
     children: [
+      { index: true, lazy: loadLandingPage },
       {
         Component: AuthLayout,
         children: [
@@ -127,7 +133,7 @@ export const router = createBrowserRouter([
         Component: CustomerLayout,
         loader: requireAuthentication,
         children: [
-          { index: true, lazy: loadHomePage },
+          { path: "app", lazy: loadHomePage },
           { path: "favorites", lazy: loadFavoritesPage },
           { path: "notifications", lazy: loadNotificationsPage },
           { path: "stores/:storeId", lazy: loadStoreDetailPage },

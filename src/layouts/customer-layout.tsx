@@ -16,7 +16,7 @@ import { Button } from "../shared/ui/button"
 const managementEntryPath = "/manage/onboarding"
 
 const customerNavigation = [
-  { to: "/", label: "홈", icon: Home, end: true },
+  { to: "/app", label: "홈", icon: Home, end: true },
   { to: "/favorites", label: "찜", icon: Heart, end: false },
   { to: "/reservations", label: "예약", icon: CalendarCheck, end: false },
   { to: "/me", label: "마이", icon: UserRound, end: false },
@@ -60,7 +60,7 @@ export function CustomerLayout() {
       <header className="border-hairline bg-canvas/95 sticky top-0 z-40 border-b backdrop-blur-sm">
         <div className="mx-auto flex h-16 w-full max-w-5xl items-center justify-between px-4 sm:px-6">
           <Link
-            to="/"
+            to="/app"
             className="inline-flex min-h-11 items-center rounded-lg"
             aria-label="남았당 홈"
           >

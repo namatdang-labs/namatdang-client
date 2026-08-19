@@ -229,7 +229,7 @@ export function FavoritesPage() {
           description="마음에 드는 가게를 찜해 두면 이곳에서 다시 확인할 수 있어요."
           action={
             <Button asChild>
-              <Link to="/">가게 둘러보기</Link>
+              <Link to="/app">가게 둘러보기</Link>
             </Button>
           }
         />
