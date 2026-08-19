@@ -1,8 +1,11 @@
 import { zodResolver } from "@hookform/resolvers/zod"
+import { useMutation } from "@tanstack/react-query"
 import { UserPlus } from "lucide-react"
 import { useForm } from "react-hook-form"
 import { Link, useNavigate } from "react-router"
 import { z } from "zod"
+import { signup } from "../../features/auth/auth-api"
+import { getAuthErrorMessage } from "../../features/auth/auth-errors"
 import {
   AuthShell,
   authInputClass,
@@ -17,11 +20,18 @@ const signupSchema = z
       .string()
       .trim()
       .min(2, "이름을 2자리 이상 입력해 주세요.")
-      .max(20, "이름을 20자리 이하로 입력해 주세요."),
-    email: z.email("이메일 형식을 확인해 주세요."),
+      .max(50, "이름을 50자리 이하로 입력해 주세요."),
+    email: z
+      .email("이메일 형식을 확인해 주세요.")
+      .max(255, "이메일은 255자리 이하로 입력해 주세요."),
+    phoneNumber: z
+      .string()
+      .trim()
+      .regex(/^\d{2,3}-?\d{3,4}-?\d{4}$/, "전화번호 형식을 확인해 주세요."),
     password: z
       .string()
       .min(8, "비밀번호는 8자리 이상이어야 해요.")
+      .max(64, "비밀번호는 64자리 이하로 입력해 주세요.")
       .regex(/[A-Za-z]/, "영문을 1개 이상 포함해 주세요.")
       .regex(/[0-9]/, "숫자를 1개 이상 포함해 주세요."),
     passwordConfirm: z.string(),
@@ -39,6 +49,12 @@ type SignupValues = z.infer<typeof signupSchema>
 export function SignupPage() {
   useDocumentTitle("회원가입")
   const navigate = useNavigate()
+  const signupMutation = useMutation({
+    mutationFn: signup,
+    onSuccess: () => {
+      navigate("/login?joined=1", { replace: true })
+    },
+  })
   const {
     register,
     handleSubmit,
@@ -48,15 +64,26 @@ export function SignupPage() {
     defaultValues: {
       name: "",
       email: "",
+      phoneNumber: "",
       password: "",
       passwordConfirm: "",
       terms: undefined,
     },
   })
 
-  const onSubmit = handleSubmit(async () => {
-    await new Promise((resolve) => window.setTimeout(resolve, 500))
-    navigate("/login?joined=1")
+  const onSubmit = handleSubmit(async (values) => {
+    signupMutation.reset()
+
+    try {
+      await signupMutation.mutateAsync({
+        name: values.name.trim(),
+        email: values.email.trim(),
+        phoneNumber: values.phoneNumber.trim(),
+        password: values.password,
+      })
+    } catch {
+      // The mutation keeps the error so the form can explain how to recover.
+    }
   })
 
   return (
@@ -65,6 +92,18 @@ export function SignupPage() {
       description="가입하면 모두 고객 기능을 사용해요. 나중에 가게를 등록하면 관리 기능이 추가돼요."
     >
       <form className="grid gap-5" onSubmit={onSubmit} noValidate>
+        {signupMutation.isError ? (
+          <p
+            className="border-critical/30 bg-critical/5 text-critical rounded-xl border px-4 py-3 text-sm"
+            role="alert"
+          >
+            {getAuthErrorMessage(
+              signupMutation.error,
+              "회원가입을 완료하지 못했어요. 입력한 정보를 확인해 주세요.",
+            )}
+          </p>
+        ) : null}
+
         <div>
           <label
             htmlFor="signup-name"
@@ -84,6 +123,31 @@ export function SignupPage() {
           />
           <FieldMessage id="signup-name-error">
             {errors.name?.message}
+          </FieldMessage>
+        </div>
+
+        <div>
+          <label
+            htmlFor="signup-phone-number"
+            className="text-foreground text-sm font-semibold"
+          >
+            전화번호
+          </label>
+          <input
+            id="signup-phone-number"
+            type="tel"
+            autoComplete="tel"
+            inputMode="tel"
+            className={`${authInputClass} mt-2`}
+            placeholder="010-1234-5678"
+            aria-invalid={Boolean(errors.phoneNumber)}
+            aria-describedby={
+              errors.phoneNumber ? "signup-phone-number-error" : undefined
+            }
+            {...register("phoneNumber")}
+          />
+          <FieldMessage id="signup-phone-number-error">
+            {errors.phoneNumber?.message}
           </FieldMessage>
         </div>
 
@@ -179,9 +243,19 @@ export function SignupPage() {
           </FieldMessage>
         </div>
 
-        <Button type="submit" className="w-full" disabled={isSubmitting}>
+        <p className="text-muted -mb-2 text-sm">
+          가입이 끝나면 로그인 화면으로 이동해요.
+        </p>
+
+        <Button
+          type="submit"
+          className="w-full"
+          disabled={isSubmitting || signupMutation.isPending}
+        >
           <UserPlus aria-hidden="true" />
-          {isSubmitting ? "계정을 만드는 중" : "회원가입"}
+          {isSubmitting || signupMutation.isPending
+            ? "계정을 만드는 중"
+            : "회원가입"}
         </Button>
       </form>
 

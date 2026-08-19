@@ -1,30 +1,53 @@
 import { useState } from "react"
 import { zodResolver } from "@hookform/resolvers/zod"
+import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { Eye, EyeOff, LogIn } from "lucide-react"
 import { useForm } from "react-hook-form"
 import { Link, useNavigate, useSearchParams } from "react-router"
 import { z } from "zod"
+import { login } from "../../features/auth/auth-api"
+import { getAuthErrorMessage } from "../../features/auth/auth-errors"
 import {
   AuthShell,
   authInputClass,
   FieldMessage,
 } from "../../features/auth/auth-shell"
+import { saveAccessToken } from "../../features/auth/auth-session"
+import { getSafeInternalPath } from "../../shared/lib/safe-internal-path"
 import { useDocumentTitle } from "../../shared/lib/use-document-title"
 import { Button } from "../../shared/ui/button"
 
 const loginSchema = z.object({
-  email: z.email("이메일 형식을 확인해 주세요."),
-  password: z.string().min(8, "비밀번호 8자리 이상을 입력해 주세요."),
+  email: z
+    .email("이메일 형식을 확인해 주세요.")
+    .max(255, "이메일은 255자리 이하로 입력해 주세요."),
+  password: z
+    .string()
+    .min(8, "비밀번호 8자리 이상을 입력해 주세요.")
+    .max(64, "비밀번호는 64자리 이하로 입력해 주세요."),
 })
 
 type LoginValues = z.infer<typeof loginSchema>
 
+function getSafeRedirect(searchParams: URLSearchParams) {
+  return getSafeInternalPath(searchParams.get("redirect"), "/")
+}
+
 export function LoginPage() {
   useDocumentTitle("로그인")
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const [searchParams] = useSearchParams()
   const [showPassword, setShowPassword] = useState(false)
   const [recoveryNotice, setRecoveryNotice] = useState(false)
+  const loginMutation = useMutation({
+    mutationFn: login,
+    onSuccess: (response) => {
+      queryClient.clear()
+      saveAccessToken(response.accessToken)
+      navigate(getSafeRedirect(searchParams), { replace: true })
+    },
+  })
   const {
     register,
     handleSubmit,
@@ -34,9 +57,17 @@ export function LoginPage() {
     defaultValues: { email: "", password: "" },
   })
 
-  const onSubmit = handleSubmit(async () => {
-    await new Promise((resolve) => window.setTimeout(resolve, 450))
-    navigate("/")
+  const onSubmit = handleSubmit(async (values) => {
+    loginMutation.reset()
+
+    try {
+      await loginMutation.mutateAsync({
+        email: values.email.trim(),
+        password: values.password,
+      })
+    } catch {
+      // The mutation keeps the error so the form can explain how to recover.
+    }
   })
 
   return (
@@ -54,6 +85,18 @@ export function LoginPage() {
       ) : null}
 
       <form className="grid gap-5" onSubmit={onSubmit} noValidate>
+        {loginMutation.isError ? (
+          <p
+            className="border-critical/30 bg-critical/5 text-critical rounded-xl border px-4 py-3 text-sm"
+            role="alert"
+          >
+            {getAuthErrorMessage(
+              loginMutation.error,
+              "로그인하지 못했어요. 입력한 정보를 확인해 주세요.",
+            )}
+          </p>
+        ) : null}
+
         <div>
           <label
             htmlFor="login-email"
@@ -132,9 +175,13 @@ export function LoginPage() {
           ) : null}
         </div>
 
-        <Button type="submit" className="mt-1 w-full" disabled={isSubmitting}>
+        <Button
+          type="submit"
+          className="mt-1 w-full"
+          disabled={isSubmitting || loginMutation.isPending}
+        >
           <LogIn aria-hidden="true" />
-          {isSubmitting ? "로그인하는 중" : "로그인"}
+          {isSubmitting || loginMutation.isPending ? "로그인하는 중" : "로그인"}
         </Button>
       </form>
 
