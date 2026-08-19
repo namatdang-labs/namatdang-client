@@ -1,4 +1,5 @@
 import type { FieldErrors, UseFormRegister } from "react-hook-form"
+import { handlePhoneNumberChange } from "../../shared/lib/phone-number"
 import { FormField, ManagementPanel, TextareaField } from "./management-ui"
 import type { StoreFormValues } from "./schemas"
 
@@ -13,6 +14,8 @@ export function StoreFormFields({
   errors,
   idPrefix,
 }: StoreFormFieldsProps) {
+  const phoneField = register("phone")
+
   return (
     <>
       <ManagementPanel aria-labelledby={`${idPrefix}-basic-title`}>
@@ -40,9 +43,14 @@ export function StoreFormFields({
             type="tel"
             inputMode="tel"
             autoComplete="tel"
+            maxLength={13}
             placeholder="02-1234-5678"
+            helper="숫자만 입력하면 하이픈이 자동으로 들어가요."
             error={errors.phone?.message}
-            {...register("phone")}
+            {...phoneField}
+            onChange={(event) =>
+              handlePhoneNumberChange(event, phoneField.onChange)
+            }
           />
           <TextareaField
             id={`${idPrefix}-description`}

@@ -286,6 +286,9 @@ test("일반 회원이 가게를 등록하면 생성 API 응답으로 관리 화
   )
   await user.type(
     screen.getByRole("textbox", { name: /가게 연락처/ }),
+    "0212345678",
+  )
+  expect(screen.getByRole("textbox", { name: /가게 연락처/ })).toHaveValue(
     "02-1234-5678",
   )
   await user.type(

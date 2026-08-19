@@ -54,6 +54,10 @@ test("방문자가 공개 랜딩에서 서비스 소개를 보고 회원가입�
   await expect(
     page.getByRole("heading", { level: 1, name: "남았당을 시작해 보세요" }),
   ).toBeVisible()
+  await page.getByRole("textbox", { name: "전화번호" }).fill("01012345678")
+  await expect(page.getByRole("textbox", { name: "전화번호" })).toHaveValue(
+    "010-1234-5678",
+  )
   expect(pageErrors).toEqual([])
 })
 
@@ -133,7 +137,10 @@ test("일반 회원이 가게를 등록하고 관리 화면으로 진입한다",
   await page.getByRole("link", { name: "가게 등록하기" }).click()
 
   await page.getByRole("textbox", { name: /가게 이름/ }).fill("성수 오늘빵")
-  await page.getByRole("textbox", { name: /가게 연락처/ }).fill("02-1234-5678")
+  await page.getByRole("textbox", { name: /가게 연락처/ }).fill("0212345678")
+  await expect(page.getByRole("textbox", { name: /가게 연락처/ })).toHaveValue(
+    "02-1234-5678",
+  )
   await page
     .getByRole("textbox", { name: /도로명 주소/ })
     .fill("서울 성동구 연무장길 18")

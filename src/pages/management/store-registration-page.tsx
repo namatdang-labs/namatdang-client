@@ -10,6 +10,7 @@ import {
 import { StoreFormFields } from "../../features/management/store-form-fields"
 import { useCreateOwnerStore } from "../../features/management/store-api"
 import { ApiError } from "../../shared/api/client"
+import { formatKoreanPhoneNumber } from "../../shared/lib/phone-number"
 import { useDocumentTitle } from "../../shared/lib/use-document-title"
 import { Button } from "../../shared/ui/button"
 
@@ -62,7 +63,7 @@ export function StoreRegistrationPage() {
               name: values.name,
               address: values.address,
               addressDetail: values.addressDetail || null,
-              phoneNumber: values.phone || null,
+              phoneNumber: formatKoreanPhoneNumber(values.phone) || null,
               description: values.description || null,
             })
             await navigate("/manage", { replace: true })

@@ -14,6 +14,7 @@ import { StoreFormFields } from "../../features/management/store-form-fields"
 import { useUpdateOwnerStore } from "../../features/management/store-api"
 import { useManagementStore } from "../../features/management/store-context"
 import { ApiError } from "../../shared/api/client"
+import { formatKoreanPhoneNumber } from "../../shared/lib/phone-number"
 import { useDocumentTitle } from "../../shared/lib/use-document-title"
 import { Button } from "../../shared/ui/button"
 
@@ -23,7 +24,7 @@ export function StoreSettingsPage() {
   const valuesForStore = useMemo<StoreFormValues>(
     () => ({
       name: store.name,
-      phone: store.phoneNumber ?? "",
+      phone: formatKoreanPhoneNumber(store.phoneNumber ?? ""),
       address: store.address,
       addressDetail: store.addressDetail ?? "",
       description: store.description ?? "",
@@ -81,7 +82,7 @@ export function StoreSettingsPage() {
                 name: values.name,
                 address: values.address,
                 addressDetail: values.addressDetail,
-                phoneNumber: values.phone,
+                phoneNumber: formatKoreanPhoneNumber(values.phone),
                 description: values.description,
               },
             })

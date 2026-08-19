@@ -167,6 +167,9 @@ test("회원가입은 role 없이 전송하고 요청했던 로그인 이동 경
   await user.type(screen.getByRole("textbox", { name: "이름" }), "신규회원")
   await user.type(
     screen.getByRole("textbox", { name: "전화번호" }),
+    "01012345678",
+  )
+  expect(screen.getByRole("textbox", { name: "전화번호" })).toHaveValue(
     "010-1234-5678",
   )
   await user.type(

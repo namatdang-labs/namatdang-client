@@ -11,6 +11,10 @@ import {
   authInputClass,
   FieldMessage,
 } from "../../features/auth/auth-shell"
+import {
+  formatKoreanPhoneNumber,
+  handlePhoneNumberChange,
+} from "../../shared/lib/phone-number"
 import { getSafeInternalPath } from "../../shared/lib/safe-internal-path"
 import { useDocumentTitle } from "../../shared/lib/use-document-title"
 import { Button } from "../../shared/ui/button"
@@ -81,6 +85,7 @@ export function SignupPage() {
       terms: undefined,
     },
   })
+  const phoneNumberField = register("phoneNumber")
 
   const onSubmit = handleSubmit(async (values) => {
     signupMutation.reset()
@@ -89,7 +94,7 @@ export function SignupPage() {
       await signupMutation.mutateAsync({
         name: values.name.trim(),
         email: values.email.trim(),
-        phoneNumber: values.phoneNumber.trim(),
+        phoneNumber: formatKoreanPhoneNumber(values.phoneNumber),
         password: values.password,
       })
     } catch {
@@ -149,14 +154,24 @@ export function SignupPage() {
             type="tel"
             autoComplete="tel"
             inputMode="tel"
+            maxLength={13}
             className={`${authInputClass} mt-2`}
             placeholder="010-1234-5678"
             aria-invalid={Boolean(errors.phoneNumber)}
-            aria-describedby={
-              errors.phoneNumber ? "signup-phone-number-error" : undefined
+            aria-describedby={`signup-phone-number-helper${
+              errors.phoneNumber ? " signup-phone-number-error" : ""
+            }`}
+            {...phoneNumberField}
+            onChange={(event) =>
+              handlePhoneNumberChange(event, phoneNumberField.onChange)
             }
-            {...register("phoneNumber")}
           />
+          <p
+            id="signup-phone-number-helper"
+            className="text-muted mt-2 text-sm"
+          >
+            숫자만 입력하면 하이픈이 자동으로 들어가요.
+          </p>
           <FieldMessage id="signup-phone-number-error">
             {errors.phoneNumber?.message}
           </FieldMessage>
