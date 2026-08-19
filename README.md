@@ -39,15 +39,24 @@ pnpm build         # 프로덕션 빌드
 pnpm check         # typecheck → lint → test → build
 ```
 
+## 구현된 핵심 화면
+
+- 인증: 로그인, 회원가입
+- 고객: 홈, 가게 상세, 할인 상세·예약 확인, 예약 완료, 예약 목록, 예약 상세, 마이
+- 가게 관리: 시작 안내, 가게 등록, 운영 현황, 할인 목록, 할인 등록·수정, 예약 관리, 가게 정보
+
+할인 등록·수정은 하나의 공용 화면을 사용한다. 고객은 모바일 우선, 가게 관리는 1024px 이상에서 사이드바와 예약 목록·상세 분할 화면을 제공한다. 현재 화면 데이터와 제출 동작은 목 상태이며 API·인증 연동은 다음 단계에서 교체한다.
+
 ## 디렉터리
 
 ```text
 src/
   app/          라우터와 앱 전역 provider
-  components/   공통 UI와 shadcn 기반 컴포넌트
+  features/     고객·인증·가게 관리 기능별 UI와 목 상태
+  layouts/      인증·고객·가게 관리 공통 셸
   pages/        라우트 단위 화면
-  shared/       API, Query, 공통 유틸리티
-  styles/       Tailwind와 디자인 토큰
+  shared/       API, Query, 도메인 타입, 공통 UI와 유틸리티
+  index.css     Tailwind와 디자인 토큰
 e2e/            Playwright 테스트
 public/brand/   실제 제품에서 사용하는 남았당 브랜드 자산
 ```
