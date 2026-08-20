@@ -39,6 +39,7 @@ aws s3 sync "${DIST_DIR}/" "${S3_URI}/" \
 if [[ -d "${DIST_DIR}/assets" ]]; then
   echo "해시된 빌드 자산을 업로드합니다."
   aws s3 sync "${DIST_DIR}/assets/" "${S3_URI}/assets/" \
+    --delete \
     --cache-control "public,max-age=31536000,immutable" \
     --only-show-errors
 fi
