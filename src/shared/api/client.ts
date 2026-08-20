@@ -1,6 +1,12 @@
 import { clientEnv } from "./env"
+import {
+  clearAccessToken,
+  getAccessToken,
+  notifyAuthenticationRequired,
+} from "../../features/auth/auth-session"
 
-type ApiRequestInit = Omit<RequestInit, "body"> & {
+type ApiRequestInit = Omit<RequestInit, "body" | "credentials"> & {
+  auth?: boolean
   json?: unknown
 }
 
@@ -31,21 +37,36 @@ async function parseResponse(response: Response) {
 }
 
 async function request<T>(path: string, init: ApiRequestInit = {}) {
-  const headers = new Headers(init.headers)
+  const { auth = true, json, ...fetchInit } = init
+  const headers = new Headers(fetchInit.headers)
+  const accessToken = auth ? getAccessToken() : null
 
-  if (init.json !== undefined && !headers.has("Content-Type")) {
+  if (json !== undefined && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json")
   }
 
+  if (accessToken && !headers.has("Authorization")) {
+    headers.set("Authorization", `Bearer ${accessToken}`)
+  }
+
   const response = await fetch(buildUrl(path), {
-    ...init,
-    credentials: init.credentials ?? "include",
+    ...fetchInit,
     headers,
-    body: init.json === undefined ? undefined : JSON.stringify(init.json),
+    body: json === undefined ? undefined : JSON.stringify(json),
   })
   const payload = await parseResponse(response)
 
   if (!response.ok) {
+    if (
+      response.status === 401 &&
+      auth &&
+      accessToken &&
+      getAccessToken() === accessToken
+    ) {
+      clearAccessToken()
+      notifyAuthenticationRequired()
+    }
+
     throw new ApiError(response.status, payload)
   }
 

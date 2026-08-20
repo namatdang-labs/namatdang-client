@@ -1,4 +1,4 @@
-const DEFAULT_API_BASE_URL = "/api"
+const DEFAULT_API_BASE_URL = "/api/v1"
 
 function normalizeBaseUrl(value: string) {
   const trimmed = value.trim().replace(/\/+$/, "")
