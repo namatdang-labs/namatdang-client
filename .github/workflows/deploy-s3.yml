@@ -1,0 +1,158 @@
+name: 프론트엔드 S3 배포
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: namatdang-client-s3-production
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: 검사 및 프로덕션 빌드
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: 소스 체크아웃
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: 배포 변수 확인
+        shell: bash
+        env:
+          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
+        run: |
+          set -euo pipefail
+
+          if [[ -z "${VITE_API_BASE_URL:-}" ]]; then
+            echo "::error::GitHub Actions 변수 VITE_API_BASE_URL이 설정되지 않았습니다."
+            exit 1
+          fi
+
+          case "${VITE_API_BASE_URL}" in
+            http://* | https://*) ;;
+            *)
+              echo "::error::VITE_API_BASE_URL은 http:// 또는 https://로 시작하는 절대 URL이어야 합니다."
+              exit 1
+              ;;
+          esac
+
+      - name: pnpm 설정
+        uses: pnpm/setup@v2
+        with:
+          install: false
+
+      - name: Node.js 설정
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: 의존성 설치
+        run: pnpm install --frozen-lockfile
+
+      - name: 포맷 검사
+        run: pnpm format:check
+
+      - name: 타입 검사
+        run: pnpm typecheck
+
+      - name: 린트 검사
+        run: pnpm lint
+
+      - name: 테스트
+        env:
+          VITE_API_BASE_URL: /api/v1
+        run: pnpm test
+
+      - name: 프로덕션 빌드
+        env:
+          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
+        run: pnpm build
+
+      - name: 빌드 결과 보관
+        uses: actions/upload-artifact@v7
+        with:
+          name: frontend-dist
+          path: dist/
+          if-no-files-found: error
+          retention-days: 7
+
+  deploy:
+    name: S3 배포
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+
+    steps:
+      - name: 배포 스크립트 체크아웃
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: AWS 배포 변수 확인
+        shell: bash
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ vars.AWS_REGION }}
+          S3_BUCKET_NAME: ${{ vars.S3_BUCKET_NAME }}
+        run: |
+          set -euo pipefail
+
+          required_variables=(
+            AWS_ACCESS_KEY_ID
+            AWS_SECRET_ACCESS_KEY
+            AWS_REGION
+            S3_BUCKET_NAME
+          )
+
+          for variable_name in "${required_variables[@]}"; do
+            if [[ -z "${!variable_name:-}" ]]; then
+              echo "::error::GitHub Actions 변수 ${variable_name}이(가) 설정되지 않았습니다."
+              exit 1
+            fi
+          done
+
+      - name: 빌드 결과 다운로드
+        uses: actions/download-artifact@v8
+        with:
+          name: frontend-dist
+          path: dist
+
+      - name: AWS 배포 자격증명 설정
+        uses: aws-actions/configure-aws-credentials@v6.2.3
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ vars.AWS_REGION }}
+          mask-aws-account-id: true
+
+      - name: S3 배포
+        env:
+          S3_BUCKET_NAME: ${{ vars.S3_BUCKET_NAME }}
+        run: bash scripts/deploy-s3.sh
+
+      - name: 배포 결과 기록
+        if: success()
+        shell: bash
+        env:
+          S3_BUCKET_NAME: ${{ vars.S3_BUCKET_NAME }}
+        run: |
+          {
+            echo "### S3 배포 완료"
+            echo "- 버킷: \`${S3_BUCKET_NAME}\`"
+            echo "- 커밋: \`${GITHUB_SHA}\`"
+          } >> "${GITHUB_STEP_SUMMARY}"
