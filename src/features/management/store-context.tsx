@@ -57,7 +57,7 @@ export function ManagementStoreProvider({ children }: { children: ReactNode }) {
             가게 정보를 불러오지 못했어요
           </h1>
           <p className="text-muted mt-2 text-sm leading-6">
-            서버 연결을 확인한 뒤 다시 시도해 주세요.
+            네트워크 상태를 확인한 뒤 다시 시도해 주세요.
           </p>
           <Button
             type="button"

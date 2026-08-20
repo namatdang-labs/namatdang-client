@@ -9,8 +9,9 @@ export function ManagementSetupLayout() {
       <header className="border-hairline bg-canvas border-b">
         <div className="mx-auto flex h-16 w-full max-w-3xl items-center justify-between px-4 sm:px-6">
           <Link
-            to="/manage/onboarding"
+            to="/app"
             className="text-brand-brown inline-flex min-h-11 items-center gap-2 rounded-lg font-bold"
+            aria-label="남았당 홈"
           >
             <img
               src="/brand/namatdang-icon.png"
