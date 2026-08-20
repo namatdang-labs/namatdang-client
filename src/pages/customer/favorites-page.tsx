@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { Heart, MapPin, Phone, RefreshCw, Store } from "lucide-react"
+import { Heart, MapPin, Phone, RefreshCw } from "lucide-react"
 import { Link } from "react-router"
 
 import {
@@ -8,22 +8,32 @@ import {
   favoriteStoresQueryOptions,
   isUnauthorizedError,
   removeFavorite,
+  sellingDealCatalogQueryOptions,
+  type SellingDealDto,
   type StoreView,
 } from "../../features/customer/customer-api"
 import {
   CustomerPage,
   EmptyState,
+  formatWon,
   PageIntro,
 } from "../../features/customer/customer-components"
 import { useDocumentTitle } from "../../shared/lib/use-document-title"
 import { Button } from "../../shared/ui/button"
+import { RepresentativeImage } from "../../shared/ui/representative-image"
 
 function FavoriteStoreCard({
   store,
+  deals,
+  dealsPending,
+  dealsUnavailable,
   isRemoving,
   onRemove,
 }: {
   store: StoreView
+  deals: SellingDealDto[]
+  dealsPending: boolean
+  dealsUnavailable: boolean
   isRemoving: boolean
   onRemove: (store: StoreView) => void
 }) {
@@ -31,13 +41,10 @@ function FavoriteStoreCard({
     <article className="border-hairline bg-canvas overflow-hidden rounded-2xl border">
       <Link
         to={`/stores/${store.routeId}`}
-        className="bg-surface text-muted flex aspect-[4/3] flex-col items-center justify-center gap-3 rounded-t-2xl px-6 text-center"
+        className="block aspect-[4/3] overflow-hidden rounded-t-2xl"
         aria-label={`${store.name} 가게 상세 보기`}
       >
-        <span className="bg-canvas flex size-14 items-center justify-center rounded-full">
-          <Store aria-hidden="true" size={24} />
-        </span>
-        <span className="text-sm">대표 이미지를 준비하고 있어요</span>
+        <RepresentativeImage kind="store" className="h-full w-full" />
       </Link>
 
       <div className="p-5">
@@ -56,12 +63,19 @@ function FavoriteStoreCard({
         </p>
         <p className="text-muted mt-4 flex min-h-6 items-center gap-2 text-sm">
           <Phone aria-hidden="true" size={18} />
-          {store.phoneNumber ?? "전화번호를 준비하고 있어요"}
+          {store.phoneNumber ?? "등록된 전화번호 없음"}
         </p>
 
         <div className="bg-surface text-muted mt-5 rounded-xl p-4 text-sm leading-6">
-          할인 정보는 아직 서버에서 제공하지 않아요. 가게 정보는 상세 화면에서
-          확인할 수 있어요.
+          {dealsPending
+            ? "예약 가능한 할인을 확인하고 있어요."
+            : dealsUnavailable
+              ? "가게 상세에서 현재 할인을 확인해 주세요."
+              : deals.length > 0
+                ? `${deals.length}개의 할인 · ${formatWon(
+                    Math.min(...deals.map((deal) => deal.lowestSalePrice)),
+                  )}부터`
+                : "현재 예약할 수 있는 할인이 없어요."}
         </div>
 
         <div className="mt-4 flex flex-col gap-2 sm:flex-row">
@@ -114,6 +128,7 @@ export function FavoritesPage() {
   useDocumentTitle("찜한 가게")
   const queryClient = useQueryClient()
   const favoritesQuery = useQuery(favoriteStoresQueryOptions())
+  const dealsQuery = useQuery(sellingDealCatalogQueryOptions(100))
   const [notice, setNotice] = useState("")
   const [mutationError, setMutationError] = useState("")
 
@@ -213,6 +228,13 @@ export function FavoritesPage() {
             <FavoriteStoreCard
               key={store.id}
               store={store}
+              deals={
+                dealsQuery.data?.content.filter(
+                  (deal) => deal.storeId === store.id,
+                ) ?? []
+              }
+              dealsPending={dealsQuery.isPending}
+              dealsUnavailable={dealsQuery.isError}
               isRemoving={
                 removeMutation.isPending &&
                 removeMutation.variables.id === store.id

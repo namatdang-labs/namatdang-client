@@ -45,7 +45,6 @@ export function LoginPage() {
   const queryClient = useQueryClient()
   const [searchParams] = useSearchParams()
   const [showPassword, setShowPassword] = useState(false)
-  const [recoveryNotice, setRecoveryNotice] = useState(false)
   const loginMutation = useMutation({
     mutationFn: login,
     onSuccess: (response) => {
@@ -127,21 +126,12 @@ export function LoginPage() {
         </div>
 
         <div>
-          <div className="flex items-center justify-between gap-4">
-            <label
-              htmlFor="login-password"
-              className="text-foreground text-sm font-semibold"
-            >
-              비밀번호
-            </label>
-            <button
-              type="button"
-              className="text-brand-link min-h-11 rounded-lg px-2 text-sm font-medium"
-              onClick={() => setRecoveryNotice(true)}
-            >
-              비밀번호 찾기
-            </button>
-          </div>
+          <label
+            htmlFor="login-password"
+            className="text-foreground text-sm font-semibold"
+          >
+            비밀번호
+          </label>
           <div className="relative">
             <input
               id="login-password"
@@ -171,14 +161,6 @@ export function LoginPage() {
           <FieldMessage id="login-password-error">
             {errors.password?.message}
           </FieldMessage>
-          {recoveryNotice ? (
-            <p
-              className="bg-brand-tint text-brand-brown mt-2 rounded-lg px-3 py-2 text-sm"
-              role="status"
-            >
-              비밀번호 재설정 기능은 인증 API 연결 후 제공할 예정이에요.
-            </p>
-          ) : null}
         </div>
 
         <Button

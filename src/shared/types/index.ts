@@ -1,14 +1,14 @@
-export type {
-  Deal,
-  DealItem,
-  DealItemStatus,
-  DealStatus,
-  DomainStatus,
-  Reservation,
-  ReservationItem,
-  ReservationStatus,
-  Store,
-  StoreStatus,
-  User,
-  UserRole,
-} from "./domain"
+export type DomainStatus =
+  | "draft"
+  | "pending"
+  | "active"
+  | "paused"
+  | "selling"
+  | "low-stock"
+  | "sold-out"
+  | "ended"
+  | "canceled"
+  | "unavailable"
+  | "confirmed"
+  | "picked-up"
+  | "no-show"

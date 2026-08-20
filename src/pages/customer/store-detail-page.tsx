@@ -1,9 +1,9 @@
 import { useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import {
-  Clock3,
+  Copy,
+  ExternalLink,
   Heart,
-  Image as ImageIcon,
   MapPin,
   Phone,
   RefreshCw,
@@ -18,23 +18,152 @@ import {
   isUnauthorizedError,
   parseNumericStoreId,
   removeFavorite,
+  storeDealsQueryOptions,
   storeQueryOptions,
   type StoreView,
 } from "../../features/customer/customer-api"
+import { StoreLocationMap, type MapCoordinate } from "../../features/map"
 import {
   BackButton,
   CustomerPage,
   DealCard,
+  DealGridSkeleton,
   EmptyState,
   SectionCard,
 } from "../../features/customer/customer-components"
-import {
-  deals,
-  getStore as getMockStore,
-} from "../../features/customer/customer-data"
 import { ApiError } from "../../shared/api/client"
 import { useDocumentTitle } from "../../shared/lib/use-document-title"
 import { Button } from "../../shared/ui/button"
+import { RepresentativeImage } from "../../shared/ui/representative-image"
+
+type CopyStatus = "idle" | "success" | "error"
+
+function getValidStorePosition(store: StoreView): MapCoordinate | null {
+  if (
+    typeof store.latitude !== "number" ||
+    !Number.isFinite(store.latitude) ||
+    store.latitude < -90 ||
+    store.latitude > 90 ||
+    typeof store.longitude !== "number" ||
+    !Number.isFinite(store.longitude) ||
+    store.longitude < -180 ||
+    store.longitude > 180
+  ) {
+    return null
+  }
+
+  return {
+    latitude: store.latitude,
+    longitude: store.longitude,
+  }
+}
+
+function getNaverMapSearchUrl(store: StoreView) {
+  const query = `${store.name} ${store.address}`.trim()
+  return `https://map.naver.com/p/search/${encodeURIComponent(query)}`
+}
+
+async function copyText(text: string) {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(text)
+    return
+  }
+
+  const textarea = document.createElement("textarea")
+  textarea.value = text
+  textarea.setAttribute("readonly", "")
+  textarea.style.position = "fixed"
+  textarea.style.opacity = "0"
+  document.body.append(textarea)
+  textarea.select()
+
+  try {
+    if (!document.execCommand("copy")) throw new Error("copy failed")
+  } finally {
+    textarea.remove()
+  }
+}
+
+function StoreLocationSection({ store }: { store: StoreView }) {
+  const [copyStatus, setCopyStatus] = useState<CopyStatus>("idle")
+  const position = getValidStorePosition(store)
+
+  const handleCopyAddress = async () => {
+    try {
+      await copyText(store.address)
+      setCopyStatus("success")
+    } catch {
+      setCopyStatus("error")
+    }
+  }
+
+  return (
+    <SectionCard className="mt-5">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="min-w-0">
+          <h2 className="text-foreground flex items-center gap-2 font-bold">
+            <MapPin aria-hidden="true" size={20} />
+            가게 위치
+          </h2>
+          <p className="text-muted mt-3 text-sm leading-6">{store.address}</p>
+        </div>
+        <div className="flex w-full flex-wrap gap-2 sm:w-auto">
+          <Button
+            type="button"
+            variant="secondary"
+            size="compact"
+            onClick={() => void handleCopyAddress()}
+          >
+            <Copy aria-hidden="true" />
+            주소 복사
+          </Button>
+          <Button asChild variant="secondary" size="compact">
+            <a
+              href={getNaverMapSearchUrl(store)}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={`${store.name} 네이버 지도에서 보기 (새 창)`}
+            >
+              <ExternalLink aria-hidden="true" />
+              네이버 지도에서 보기
+            </a>
+          </Button>
+        </div>
+      </div>
+
+      <p
+        className={`mt-3 min-h-5 text-sm ${
+          copyStatus === "error" ? "text-critical" : "text-success"
+        }`}
+        role="status"
+        aria-live="polite"
+      >
+        {copyStatus === "success"
+          ? "주소를 복사했어요."
+          : copyStatus === "error"
+            ? "주소를 복사하지 못했어요. 주소를 직접 선택해 복사해 주세요."
+            : ""}
+      </p>
+
+      {position ? (
+        <StoreLocationMap
+          position={position}
+          ariaLabel={`${store.name} 위치 지도`}
+          className="mt-3 h-64 w-full rounded-2xl sm:h-80"
+        />
+      ) : (
+        <div className="bg-surface text-muted mt-3 flex min-h-48 flex-col items-center justify-center gap-3 rounded-2xl px-6 text-center">
+          <span className="bg-canvas flex size-12 items-center justify-center rounded-full">
+            <MapPin aria-hidden="true" size={22} />
+          </span>
+          <p className="text-sm leading-6">
+            지도에서 위치를 확인할 수 없어요. 주소로 가게를 확인해 주세요.
+          </p>
+        </div>
+      )}
+    </SectionCard>
+  )
+}
 
 function StoreDetailSkeleton() {
   return (
@@ -77,11 +206,8 @@ function ApiStoreDetail({
   return (
     <>
       <div className="border-hairline bg-canvas overflow-hidden rounded-2xl border">
-        <div className="bg-surface text-muted relative flex aspect-[16/9] max-h-[420px] flex-col items-center justify-center gap-3 px-6 text-center">
-          <span className="bg-canvas flex size-14 items-center justify-center rounded-full">
-            <ImageIcon aria-hidden="true" size={24} />
-          </span>
-          <span className="text-sm">대표 이미지를 준비하고 있어요</span>
+        <div className="relative aspect-[16/9] max-h-[420px]">
+          <RepresentativeImage kind="store" className="h-full w-full" />
           <button
             type="button"
             className="bg-canvas/95 text-foreground absolute top-4 right-4 inline-flex min-h-11 items-center gap-2 rounded-full px-4 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-60"
@@ -131,19 +257,9 @@ function ApiStoreDetail({
         </div>
       </div>
 
-      <div className="mt-5 grid gap-4 sm:grid-cols-2">
-        <SectionCard>
-          <h2 className="text-foreground flex items-center gap-2 font-bold">
-            <MapPin aria-hidden="true" size={20} />
-            가게 위치
-          </h2>
-          <p className="text-muted mt-3 text-sm leading-6">{store.address}</p>
-          {store.latitude !== null && store.longitude !== null ? (
-            <p className="text-muted mt-2 text-xs tabular-nums">
-              위도 {store.latitude}, 경도 {store.longitude}
-            </p>
-          ) : null}
-        </SectionCard>
+      <StoreLocationSection key={store.id} store={store} />
+
+      <div className="mt-4 grid gap-4 sm:grid-cols-2">
         <SectionCard>
           <h2 className="text-foreground flex items-center gap-2 font-bold">
             <Phone aria-hidden="true" size={20} />
@@ -158,161 +274,94 @@ function ApiStoreDetail({
             </a>
           ) : (
             <p className="text-muted mt-3 text-sm leading-6">
-              전화번호를 준비하고 있어요.
+              등록된 전화번호가 없어요.
             </p>
           )}
         </SectionCard>
       </div>
 
-      <SectionCard className="mt-4">
-        <h2 className="text-foreground flex items-center gap-2 font-bold">
-          <Clock3 aria-hidden="true" size={20} />
-          영업시간
-        </h2>
-        <p className="text-muted mt-3 text-sm leading-6">
-          영업시간은 아직 서버에서 제공하지 않아요. 방문 전 가게에 문의해
-          주세요.
-        </p>
-      </SectionCard>
-
-      <section className="mt-10" aria-labelledby="store-deals-title">
-        <p className="text-brand-link mb-1 flex items-center gap-2 text-sm font-semibold">
-          <Store aria-hidden="true" size={17} />
-          오늘의 할인
-        </p>
-        <h2
-          id="store-deals-title"
-          className="text-foreground text-xl font-bold"
-        >
-          예약 가능한 할인
-        </h2>
-        <EmptyState
-          title="할인 목록 연결을 준비하고 있어요"
-          description="현재 서버에는 가게별 할인 조회 API가 없어 실제 가게 정보만 보여 드리고 있어요."
-        />
-      </section>
+      <StoreDealsSection storeId={store.id} />
     </>
   )
 }
 
-function MockStoreDetail({ storeId }: { storeId: string }) {
-  const store = getMockStore(storeId)
-  const storeDeals = deals.filter((deal) => deal.storeId === storeId)
-
-  if (!store) {
-    return (
-      <>
-        <h1 data-route-heading tabIndex={-1} className="text-2xl font-bold">
-          가게를 찾을 수 없어요
-        </h1>
-        <p className="text-muted mt-3">홈에서 다른 가게를 살펴보세요.</p>
-      </>
-    )
-  }
+function StoreDealsSection({ storeId }: { storeId: number }) {
+  const dealsQuery = useQuery(storeDealsQueryOptions(storeId, 0, 20))
 
   return (
-    <>
-      <p className="bg-brand-tint text-brand-brown mb-4 rounded-xl px-4 py-3 text-sm leading-6">
-        이 화면은 기존 디자인을 확인하기 위한 예시 데이터예요. 숫자로 된 실제
-        가게 주소에서 서버 데이터와 찜 기능을 사용할 수 있어요.
-      </p>
-      <div className="border-hairline bg-canvas overflow-hidden rounded-2xl border">
-        <div className="bg-surface relative aspect-[16/9] max-h-[420px]">
-          <img
-            src={store.imageUrl}
-            alt={`${store.name} 대표`}
-            className="h-full w-full object-cover"
-            fetchPriority="high"
-          />
-          <button
-            type="button"
-            className="bg-canvas/95 text-muted absolute top-4 right-4 inline-flex min-h-11 cursor-not-allowed items-center gap-2 rounded-full px-4 text-sm font-semibold"
-            disabled
-          >
-            <Heart aria-hidden="true" size={20} />
-            예시 화면
-          </button>
-        </div>
-        <div className="p-5 sm:p-7">
-          <p className="text-brand-link text-sm font-semibold">
-            {store.district}
+    <section className="mt-10" aria-labelledby="store-deals-title">
+      <div className="mb-4 flex items-end justify-between gap-4">
+        <div>
+          <p className="text-brand-link mb-1 flex items-center gap-2 text-sm font-semibold">
+            <Store aria-hidden="true" size={17} />
+            오늘의 할인
           </p>
-          <h1
-            data-route-heading
-            tabIndex={-1}
-            className="text-foreground mt-1 text-2xl font-bold sm:text-3xl"
+          <h2
+            id="store-deals-title"
+            className="text-foreground text-xl font-bold"
           >
-            {store.name}
-          </h1>
-          <p className="text-muted mt-4 max-w-2xl text-sm leading-6 sm:text-base">
-            {store.description}
-          </p>
+            예약 가능한 할인
+          </h2>
         </div>
+        {dealsQuery.isSuccess ? (
+          <span className="text-muted text-sm">
+            {dealsQuery.data.totalElements}개
+          </span>
+        ) : null}
       </div>
 
-      <div className="mt-5 grid gap-4 sm:grid-cols-2">
-        <SectionCard>
-          <h2 className="text-foreground flex items-center gap-2 font-bold">
-            <Clock3 aria-hidden="true" size={20} />
-            오늘 영업
-          </h2>
-          <p className="text-muted mt-3 text-sm leading-6">{store.openHours}</p>
-        </SectionCard>
-        <SectionCard>
-          <h2 className="text-foreground flex items-center gap-2 font-bold">
-            <MapPin aria-hidden="true" size={20} />
-            가게 위치
-          </h2>
-          <p className="text-muted mt-3 text-sm leading-6">{store.address}</p>
-        </SectionCard>
-      </div>
-
-      <section className="mt-10" aria-labelledby="mock-store-deals-title">
-        <div className="mb-4 flex items-end justify-between gap-4">
-          <div>
-            <p className="text-brand-link mb-1 flex items-center gap-2 text-sm font-semibold">
-              <Store aria-hidden="true" size={17} />
-              디자인 예시 할인
-            </p>
-            <h2
-              id="mock-store-deals-title"
-              className="text-foreground text-xl font-bold"
+      {dealsQuery.isPending ? <DealGridSkeleton count={2} /> : null}
+      {dealsQuery.isError ? (
+        <EmptyState
+          title="할인을 불러오지 못했어요"
+          description="연결 상태를 확인한 뒤 다시 불러와 주세요."
+          action={
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => void dealsQuery.refetch()}
             >
-              예약 가능한 할인
-            </h2>
-          </div>
-          <span className="text-muted text-sm">{storeDeals.length}개</span>
+              <RefreshCw aria-hidden="true" />
+              다시 불러오기
+            </Button>
+          }
+        />
+      ) : null}
+      {dealsQuery.isSuccess && dealsQuery.data.content.length > 0 ? (
+        <div className="grid gap-5 sm:grid-cols-2">
+          {dealsQuery.data.content.map((deal) => (
+            <DealCard key={deal.dealId} deal={deal} />
+          ))}
         </div>
-        {storeDeals.length > 0 ? (
-          <div className="grid gap-5 sm:grid-cols-2">
-            {storeDeals.map((deal) => (
-              <DealCard key={deal.id} deal={deal} />
-            ))}
-          </div>
-        ) : (
-          <EmptyState
-            title="오늘 공개한 할인이 없어요"
-            description="다른 가게의 예시 할인을 살펴보세요."
-          />
-        )}
-      </section>
-    </>
+      ) : null}
+      {dealsQuery.isSuccess && dealsQuery.data.content.length === 0 ? (
+        <EmptyState
+          title="오늘 공개한 할인이 없어요"
+          description="다른 가게의 할인도 둘러보세요."
+          action={
+            <Button asChild variant="secondary">
+              <Link to="/app">오늘의 할인 보기</Link>
+            </Button>
+          }
+        />
+      ) : null}
+    </section>
   )
 }
 
 export function StoreDetailPage() {
   const { storeId } = useParams()
   const numericStoreId = parseNumericStoreId(storeId)
-  const isApiStore = numericStoreId !== null
+  const hasValidStoreId = numericStoreId !== null
   const queryClient = useQueryClient()
   const [mutationError, setMutationError] = useState("")
   const storeQuery = useQuery({
     ...storeQueryOptions(numericStoreId ?? 0),
-    enabled: isApiStore,
+    enabled: hasValidStoreId,
   })
   const favoritesQuery = useQuery({
     ...favoriteStoresQueryOptions(),
-    enabled: isApiStore && storeQuery.isSuccess,
+    enabled: hasValidStoreId && storeQuery.isSuccess,
   })
   const favoriteMutation = useMutation({
     mutationFn: ({
@@ -352,19 +401,26 @@ export function StoreDetailPage() {
     },
   })
 
-  const mockStore = isApiStore ? undefined : getMockStore(storeId)
-  const storeName = storeQuery.data?.name ?? mockStore?.name ?? "가게 상세"
+  const storeName = storeQuery.data?.name ?? "가게 상세"
   const isFavorite =
     numericStoreId !== null &&
     (favoritesQuery.data?.some((store) => store.id === numericStoreId) ?? false)
 
   useDocumentTitle(storeName)
 
-  if (!isApiStore) {
+  if (!hasValidStoreId) {
     return (
       <CustomerPage className="max-w-4xl">
         <BackButton />
-        <MockStoreDetail storeId={storeId ?? ""} />
+        <EmptyState
+          title="가게를 찾을 수 없어요"
+          description="주소를 다시 확인하거나 다른 가게를 살펴보세요."
+          action={
+            <Button asChild variant="secondary">
+              <Link to="/app">가게 둘러보기</Link>
+            </Button>
+          }
+        />
       </CustomerPage>
     )
   }
@@ -390,7 +446,7 @@ export function StoreDetailPage() {
           }
           description={
             unauthorized
-              ? "로그인한 뒤 실제 가게 정보와 찜 상태를 확인할 수 있어요."
+              ? "로그인한 뒤 가게 정보와 찜 상태를 확인할 수 있어요."
               : notFound
                 ? "주소를 다시 확인하거나 다른 가게를 살펴보세요."
                 : "연결 상태를 확인한 뒤 다시 불러와 주세요."
