@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test"
 
+import { LOCATION_PREFERENCE_STORAGE_KEY } from "../src/features/customer/location-preference"
 import { FUTURE_ACCESS_TOKEN } from "../src/test/auth-token"
 import { installMockApi } from "./mock-api"
 
@@ -61,18 +62,128 @@ test("방문자가 공개 랜딩에서 서비스 소개를 보고 회원가입�
   expect(pageErrors).toEqual([])
 })
 
+test("고객이 지도 중심으로 동네를 선택하고 홈에서 확인한다", async ({
+  page,
+}) => {
+  await installMockApi(page)
+  await page.addInitScript(() => {
+    Reflect.set(window, "__namatdangGeolocationCalls", 0)
+    Object.defineProperty(window.navigator, "geolocation", {
+      configurable: true,
+      value: {
+        getCurrentPosition() {
+          const currentCalls = Number(
+            Reflect.get(window, "__namatdangGeolocationCalls") ?? 0,
+          )
+          Reflect.set(window, "__namatdangGeolocationCalls", currentCalls + 1)
+        },
+      },
+    })
+  })
+
+  await page.goto("/app", { waitUntil: "domcontentloaded" })
+  await page.getByRole("link", { name: "위치 설정" }).click()
+
+  await expect(page).toHaveURL(/\/location\?returnTo=%2Fapp$/)
+  await expect(
+    page.getByRole("heading", { level: 1, name: "지도에서 위치 설정" }),
+  ).toBeVisible()
+  await expect(
+    page.getByRole("region", { name: "선택할 위치를 정하는 지도" }),
+  ).toBeVisible()
+  await expect(
+    page.getByRole("button", { name: /내 위치|현재 위치/ }),
+  ).toHaveCount(0)
+
+  await page
+    .getByRole("region", { name: "선택할 위치를 정하는 지도" })
+    .click({ position: { x: 160, y: 120 } })
+  await expect(page.getByText("서울 중구 세종대로 110")).toBeVisible()
+
+  await page.getByRole("button", { name: "이 위치로 설정" }).click()
+
+  await expect(page).toHaveURL(/\/app$/)
+  await expect(
+    page.getByRole("link", { name: "태평로1가 5km 기준 위치 변경" }),
+  ).toBeVisible()
+  expect(
+    await page.evaluate(() =>
+      Number(Reflect.get(window, "__namatdangGeolocationCalls") ?? 0),
+    ),
+  ).toBe(0)
+})
+
 test("고객이 품목 수량을 고르고 예약을 완료한다", async ({ page }) => {
   const api = await installMockApi(page)
+  await page.addInitScript(
+    ({ key, preference }) => {
+      window.localStorage.setItem(key, JSON.stringify(preference))
+    },
+    {
+      key: LOCATION_PREFERENCE_STORAGE_KEY,
+      preference: {
+        v: 1,
+        latitude: 37.5445,
+        longitude: 127.056,
+        label: "성수동",
+        address: "서울특별시 성동구 성수동",
+      },
+    },
+  )
   await page.goto("/app", { waitUntil: "domcontentloaded" })
 
   await expect(
-    page.getByRole("heading", { level: 1, name: "근처의 마감 할인" }),
+    page.getByRole("heading", {
+      level: 1,
+      name: "성수동 근처 예약 가능한 할인",
+    }),
   ).toBeVisible()
-  await page
-    .getByRole("link", { name: "오늘의 소금빵 모음 할인 상세 보기" })
-    .click()
+  await page.getByRole("link", { name: "현재 조건으로 지도보기" }).click()
+  await expect.poll(() => new URL(page.url()).pathname).toBe("/map")
+  await expect
+    .poll(() => new URL(page.url()).searchParams.get("onlyDiscounting"))
+    .toBe("true")
+  await expect(
+    page.getByRole("heading", { level: 1, name: "지도에서 가게 찾기" }),
+  ).toBeVisible()
+  const mapSearch = page.getByRole("searchbox", {
+    name: "지도에서 가게 검색",
+  })
+  await expect(mapSearch).toBeVisible()
+  await mapSearch.fill("소금빵")
+  await page.getByRole("button", { name: "검색", exact: true }).click()
+  await expect
+    .poll(() => new URL(page.url()).searchParams.get("q"))
+    .toBe("소금빵")
+  await expect(
+    page.getByRole("region", { name: "등록된 가게 위치 지도" }),
+  ).toBeVisible()
+  await expect(page.locator('[data-mock-naver-map="ready"]')).toBeVisible()
+  const activeStore = page.getByRole("img", {
+    name: /성수 빵연구소 · 현재 할인 진행 중/,
+  })
+  await expect(activeStore).toBeVisible()
+  await expect(
+    page.getByRole("img", {
+      name: /망원 케이크룸.*현재 할인 없음/,
+    }),
+  ).toHaveCount(0)
+  await activeStore.click()
+  const selectedStore = page.getByRole("article", {
+    name: "성수 빵연구소",
+  })
+  await expect(selectedStore).toContainText("할인 중")
+  await expect(selectedStore).toContainText("1개 · 할인 판매 중")
 
-  await expect(page).toHaveURL(/\/deals\/salt-bread-today$/)
+  await page.getByRole("button", { name: "가게 목록으로 돌아가기" }).click()
+  await expect.poll(() => new URL(page.url()).pathname).toBe("/app")
+  await expect
+    .poll(() => new URL(page.url()).searchParams.get("q"))
+    .toBe("소금빵")
+
+  await page.getByRole("link", { name: "소금빵 할인 상세 보기" }).click()
+
+  await expect(page).toHaveURL(/\/deals\/501$/)
   const quantity = page.getByRole("group", { name: "소금빵 수량" })
   await quantity.getByRole("button", { name: "소금빵 수량 늘리기" }).click()
   await expect(quantity).toContainText("1")
@@ -84,11 +195,19 @@ test("고객이 품목 수량을 고르고 예약을 완료한다", async ({ pag
   await expect(reviewDialog).toContainText("소금빵 1개")
   await reviewDialog.getByRole("button", { name: "예약하기" }).click()
 
-  await expect(page).toHaveURL(/\/reservations\/complete$/)
+  await expect(page).toHaveURL(/\/reservations\/complete\?reservationId=91$/)
   await expect(
     page.getByRole("heading", { level: 1, name: "예약이 완료됐어요" }),
   ).toBeVisible()
   await expect(page.getByText("소금빵 1개 · 총 1개")).toBeVisible()
+  expect(
+    api.requests.some(
+      ({ method, pathname, idempotencyKey }) =>
+        method === "POST" &&
+        pathname === "/api/v1/reservations" &&
+        Boolean(idempotencyKey),
+    ),
+  ).toBe(true)
   expect(
     api.requests.every(
       ({ authorization }) => authorization === `Bearer ${FUTURE_ACCESS_TOKEN}`,
@@ -144,6 +263,13 @@ test("일반 회원이 가게를 등록하고 관리 화면으로 진입한다",
   await page
     .getByRole("textbox", { name: /도로명 주소/ })
     .fill("서울 성동구 연무장길 18")
+  await page.getByRole("button", { name: "주소로 위치 찾기" }).click()
+  await expect(
+    page.getByText(
+      "주소의 위치를 찾았어요. 지도의 핀이 실제 픽업 장소와 맞는지 확인해 주세요.",
+    ),
+  ).toBeVisible()
+  await expect(page.locator('[data-mock-naver-map="ready"]')).toBeVisible()
   await page.getByRole("textbox", { name: "상세 주소" }).fill("1층")
   await page
     .getByRole("textbox", { name: "가게 소개" })
@@ -165,6 +291,8 @@ test("일반 회원이 가게를 등록하고 관리 화면으로 진입한다",
   expect(api.ownerStores[0]).toMatchObject({
     name: "성수 오늘빵",
     phoneNumber: "02-1234-5678",
+    latitude: 37.5445,
+    longitude: 127.056,
   })
   expect(
     api.requests.some(
@@ -195,6 +323,6 @@ test("가게 관리자가 고객 화면과 관리 예약 화면을 오간다", a
 
   await expect(page).toHaveURL(/\/app$/)
   await expect(
-    page.getByRole("heading", { level: 1, name: "근처의 마감 할인" }),
+    page.getByRole("heading", { level: 1, name: "지금 예약 가능한 할인" }),
   ).toBeVisible()
 })
