@@ -1,5 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod"
-import { act, render, screen, waitFor, within } from "@testing-library/react"
+import { act, render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { useForm } from "react-hook-form"
 import { beforeEach, expect, test, vi } from "vitest"
@@ -123,6 +123,14 @@ test("주소를 입력하는 동안은 검색하지 않고 명시적 행동 후 
     await screen.findByRole("region", { name: "가게 픽업 위치 확인 지도" }),
   ).toBeInTheDocument()
   expect(addressField).toHaveValue(geocodedAddress.roadAddress)
+  expect(
+    screen.getByText(
+      "지도에서 핀을 드래그해 실제 출입구 위치로 조정할 수 있어요.",
+    ),
+  ).toBeInTheDocument()
+  expect(
+    screen.queryByRole("group", { name: "가게 핀 미세 조정" }),
+  ).not.toBeInTheDocument()
 
   await user.click(screen.getByRole("button", { name: "핀 위치 조정" }))
   await user.click(screen.getByRole("button", { name: "저장" }))
@@ -166,52 +174,6 @@ test("확인한 주소 문자열이 바뀌면 이전 좌표를 즉시 무효화�
     await screen.findByText("주소로 위치를 찾은 뒤 지도에서 확인해 주세요."),
   ).toBeInTheDocument()
   expect(onSubmit).not.toHaveBeenCalled()
-})
-
-test("키보드로 4방향 조정 버튼을 사용해 핀을 약 2m 이동한다", async () => {
-  const user = userEvent.setup()
-  const onSubmit = vi.fn()
-  render(
-    <StoreFormHarness
-      defaultValues={{
-        ...emptyStoreValues,
-        address: geocodedAddress.roadAddress,
-        latitude: geocodedAddress.latitude,
-        longitude: geocodedAddress.longitude,
-      }}
-      onSubmit={onSubmit}
-    />,
-  )
-
-  const adjustmentGroup = screen.getByRole("group", {
-    name: "가게 핀 미세 조정",
-  })
-  for (const direction of ["북쪽", "남쪽", "동쪽", "서쪽"]) {
-    expect(
-      within(adjustmentGroup).getByRole("button", {
-        name: `핀을 ${direction}으로 조금 이동`,
-      }),
-    ).toBeInTheDocument()
-  }
-
-  const northButton = within(adjustmentGroup).getByRole("button", {
-    name: "핀을 북쪽으로 조금 이동",
-  })
-  northButton.focus()
-  await user.keyboard("{Enter}")
-
-  expect(
-    await screen.findByText(
-      "핀을 북쪽으로 조금 이동했어요. 이 위치가 고객에게 픽업 장소로 보여요.",
-    ),
-  ).toBeInTheDocument()
-  await user.click(screen.getByRole("button", { name: "저장" }))
-
-  await waitFor(() => expect(onSubmit).toHaveBeenCalled())
-  expect(onSubmit.mock.calls[0]?.[0]).toMatchObject({
-    latitude: 37.5429303,
-    longitude: 127.0548123,
-  })
 })
 
 test("위치를 찾는 동안 로딩 상태를 보이고 결과가 오면 해제한다", async () => {

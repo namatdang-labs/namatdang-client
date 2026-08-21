@@ -1,12 +1,4 @@
-import {
-  ArrowDown,
-  ArrowLeft,
-  ArrowRight,
-  ArrowUp,
-  LoaderCircle,
-  MapPin,
-  Search,
-} from "lucide-react"
+import { LoaderCircle, MapPin, Search } from "lucide-react"
 import { useMemo, useRef, useState } from "react"
 import type {
   Control,
@@ -61,50 +53,6 @@ function isLongitude(value: number | null | undefined): value is number {
 
 function normalizeCoordinate(value: number) {
   return Number(value.toFixed(7))
-}
-
-const PIN_NUDGE_DISTANCE_METERS = 2
-const METERS_PER_LATITUDE_DEGREE = 111_320
-
-type PinNudgeDirection = "north" | "south" | "east" | "west"
-
-function clamp(value: number, minimum: number, maximum: number) {
-  return Math.min(Math.max(value, minimum), maximum)
-}
-
-function nudgeCoordinate(
-  position: MapCoordinate,
-  direction: PinNudgeDirection,
-): MapCoordinate {
-  const latitudeDelta = PIN_NUDGE_DISTANCE_METERS / METERS_PER_LATITUDE_DEGREE
-  const longitudeScale = Math.max(
-    Math.abs(Math.cos((position.latitude * Math.PI) / 180)),
-    0.01,
-  )
-  const longitudeDelta = latitudeDelta / longitudeScale
-
-  switch (direction) {
-    case "north":
-      return {
-        ...position,
-        latitude: clamp(position.latitude + latitudeDelta, -90, 90),
-      }
-    case "south":
-      return {
-        ...position,
-        latitude: clamp(position.latitude - latitudeDelta, -90, 90),
-      }
-    case "east":
-      return {
-        ...position,
-        longitude: clamp(position.longitude + longitudeDelta, -180, 180),
-      }
-    case "west":
-      return {
-        ...position,
-        longitude: clamp(position.longitude - longitudeDelta, -180, 180),
-      }
-  }
 }
 
 function getGeocodingErrorMessage(error: unknown) {
@@ -206,20 +154,6 @@ export function StoreFormFields({
     clearErrors(["latitude", "longitude"])
     setSearchError(null)
     setLocationStatus(options.status)
-  }
-
-  const nudgePin = (direction: PinNudgeDirection) => {
-    if (!position) return
-
-    const directionLabel: Record<PinNudgeDirection, string> = {
-      north: "북쪽",
-      south: "남쪽",
-      east: "동쪽",
-      west: "서쪽",
-    }
-    setCoordinates(nudgeCoordinate(position, direction), {
-      status: `핀을 ${directionLabel[direction]}으로 조금 이동했어요. 이 위치가 고객에게 픽업 장소로 보여요.`,
-    })
   }
 
   const findLocation = async () => {
@@ -376,63 +310,8 @@ export function StoreFormFields({
                   className="h-72 w-full sm:h-80"
                 />
                 <p className="text-muted mt-2 text-sm leading-5">
-                  핀을 움직여 실제 출입구 위치로 미세 조정할 수 있어요.
+                  지도에서 핀을 드래그해 실제 출입구 위치로 조정할 수 있어요.
                 </p>
-                <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <p
-                    id={`${idPrefix}-pin-adjustment-helper`}
-                    className="text-muted max-w-md text-sm leading-5"
-                  >
-                    화살표 버튼으로 핀을 약 2m씩 조정할 수 있어요.
-                  </p>
-                  <div
-                    role="group"
-                    aria-label="가게 핀 미세 조정"
-                    aria-describedby={`${idPrefix}-pin-adjustment-helper`}
-                    className="grid w-fit shrink-0 grid-cols-3 grid-rows-3 gap-1"
-                  >
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      size="icon"
-                      className="col-start-2 row-start-1"
-                      aria-label="핀을 북쪽으로 조금 이동"
-                      onClick={() => nudgePin("north")}
-                    >
-                      <ArrowUp aria-hidden="true" />
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      size="icon"
-                      className="col-start-1 row-start-2"
-                      aria-label="핀을 서쪽으로 조금 이동"
-                      onClick={() => nudgePin("west")}
-                    >
-                      <ArrowLeft aria-hidden="true" />
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      size="icon"
-                      className="col-start-2 row-start-3"
-                      aria-label="핀을 남쪽으로 조금 이동"
-                      onClick={() => nudgePin("south")}
-                    >
-                      <ArrowDown aria-hidden="true" />
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      size="icon"
-                      className="col-start-3 row-start-2"
-                      aria-label="핀을 동쪽으로 조금 이동"
-                      onClick={() => nudgePin("east")}
-                    >
-                      <ArrowRight aria-hidden="true" />
-                    </Button>
-                  </div>
-                </div>
               </>
             ) : (
               <div className="border-hairline bg-surface text-muted flex min-h-48 flex-col items-center justify-center rounded-xl border px-6 py-8 text-center">
