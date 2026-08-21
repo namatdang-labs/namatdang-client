@@ -14,7 +14,7 @@ test("방문자가 공개 랜딩에서 서비스 소개를 보고 할인 탐색�
 
   const heroHeading = page.getByRole("heading", {
     level: 1,
-    name: "오늘 남은 빵, 가까이서 예약해요.",
+    name: "오늘의 맛있는 발견, 우리 동네에서.",
   })
   const hero = page.locator("section").filter({ has: heroHeading })
   const primaryAction = hero.getByRole("link", {

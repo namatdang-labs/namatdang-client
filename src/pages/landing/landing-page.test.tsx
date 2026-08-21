@@ -38,7 +38,7 @@ test("고객이 서버 응답 없이 완성된 할인 탐색 화면을 확인한
 
   const heroHeading = screen.getByRole("heading", {
     level: 1,
-    name: "오늘 남은 빵, 가까이서 예약해요.",
+    name: "오늘의 맛있는 발견, 우리 동네에서.",
   })
   const hero = heroHeading.closest("section")
 

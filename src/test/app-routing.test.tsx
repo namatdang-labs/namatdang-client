@@ -77,7 +77,7 @@ vi.mock("../features/map", () => ({
 }))
 
 const coreScreens = [
-  ["landing", "/", "오늘 남은 빵, 가까이서 예약해요."],
+  ["landing", "/", "오늘의 맛있는 발견, 우리 동네에서."],
   ["login", "/login", "다시 만나서 반가워요"],
   ["signup", "/signup", "남았당을 시작해 보세요"],
   ["home", "/app", "지금 예약 가능한 할인"],
@@ -201,7 +201,7 @@ test("토큰 없이 공개 랜딩을 보고 서비스와 로그인 경로를 선
 
   const heroHeading = await screen.findByRole("heading", {
     level: 1,
-    name: "오늘 남은 빵, 가까이서 예약해요.",
+    name: "오늘의 맛있는 발견, 우리 동네에서.",
   })
   const hero = heroHeading.closest("section")
 

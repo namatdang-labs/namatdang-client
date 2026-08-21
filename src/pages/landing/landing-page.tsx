@@ -225,9 +225,9 @@ function HeroSection() {
             tabIndex={-1}
             className="text-brand-brown mt-4 text-4xl leading-[1.25] font-bold tracking-[-0.01em] text-balance break-keep sm:text-5xl lg:text-[3.5rem]"
           >
-            오늘 남은 빵,
+            오늘의 맛있는 발견,
             <br />
-            가까이서 예약해요.
+            우리 동네에서.
           </h1>
           <p className="text-muted mt-5 max-w-lg text-base leading-7 break-keep sm:text-lg sm:leading-8">
             동네 가게의 할인 상품을 사진으로 둘러보고 가격, 남은 수량, 예약 마감
