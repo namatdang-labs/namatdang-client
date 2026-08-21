@@ -1,4 +1,4 @@
-import { screen } from "@testing-library/react"
+import { screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { afterEach, expect, test, vi } from "vitest"
 import { MemoryRouter } from "react-router"
@@ -115,6 +115,19 @@ test("선택 위치 5km 안의 가게만 가까운 순으로 20개씩 보여준�
   const secondStore = screen.getByText("근처 빵집 2").closest("a")
   expect(firstStore).not.toBeNull()
   expect(secondStore).not.toBeNull()
+  const firstStoreCard = within(firstStore as HTMLElement)
+  const secondStoreCard = within(secondStore as HTMLElement)
+  const firstStoreTitle = firstStoreCard.getByRole("heading", {
+    name: "근처 빵집 1",
+  })
+  const noActiveDealBadge = firstStoreCard.getByText("현재 할인 없음")
+  expect(firstStoreTitle.parentElement).toBe(noActiveDealBadge.parentElement)
+  expect(firstStoreCard.getByText("가게 기본 이미지")).toBeInTheDocument()
+  expect(
+    firstStoreCard.getByText(/^\d+(?:\.\d+)?(?:m|km)$/),
+  ).toBeInTheDocument()
+  expect(secondStoreCard.getByText("할인 중")).toBeInTheDocument()
+  expect(secondStoreCard.getByText("1개 판매 중")).toBeInTheDocument()
   expect(
     firstStore!.compareDocumentPosition(secondStore!) &
       Node.DOCUMENT_POSITION_FOLLOWING,
