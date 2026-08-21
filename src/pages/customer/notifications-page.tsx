@@ -1,5 +1,11 @@
 import { useMemo, useState } from "react"
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import {
+  type InfiniteData,
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query"
 import {
   BadgePercent,
   Bell,
@@ -30,7 +36,7 @@ import { EmptyState } from "../../shared/ui/empty-state"
 
 type NotificationFilter = "all" | "unread"
 
-const NOTIFICATION_PAGE_SIZE = 100
+const NOTIFICATION_PAGE_SIZE = 20
 
 const notificationPresentation: Record<
   CustomerNotificationType,
@@ -200,7 +206,7 @@ function NotificationsSkeleton() {
 
 export function NotificationsPage() {
   const queryClient = useQueryClient()
-  const notificationsQuery = useQuery(
+  const notificationsQuery = useInfiniteQuery(
     notificationsQueryOptions(NOTIFICATION_PAGE_SIZE),
   )
   const unreadCountQuery = useQuery(unreadNotificationCountQueryOptions())
@@ -209,29 +215,46 @@ export function NotificationsPage() {
 
   const updateReadCaches = (notificationIds: number[]) => {
     const readIds = new Set(notificationIds)
-    queryClient.setQueryData<NotificationListView>(
+    let newlyReadCount = 0
+    const countedIds = new Set<number>()
+
+    queryClient.setQueryData<InfiniteData<NotificationListView, number | null>>(
       customerQueryKeys.notifications(NOTIFICATION_PAGE_SIZE),
       (current) =>
         current
           ? {
               ...current,
-              notifications: current.notifications.map((notification) =>
-                readIds.has(notification.id)
-                  ? { ...notification, isRead: true }
-                  : notification,
-              ),
+              pages: current.pages.map((page) => ({
+                ...page,
+                notifications: page.notifications.map((notification) => {
+                  if (
+                    readIds.has(notification.id) &&
+                    !notification.isRead &&
+                    !countedIds.has(notification.id)
+                  ) {
+                    newlyReadCount += 1
+                    countedIds.add(notification.id)
+                  }
+
+                  return readIds.has(notification.id)
+                    ? { ...notification, isRead: true }
+                    : notification
+                }),
+              })),
             }
           : current,
     )
+
+    if (newlyReadCount === 0) return
+
     queryClient.setQueryData<UnreadNotificationCountDto>(
       customerQueryKeys.unreadNotificationCount,
-      (current) => ({
-        unreadCount: Math.max(
-          0,
-          (current?.unreadCount ?? notificationIds.length) -
-            notificationIds.length,
-        ),
-      }),
+      (current) =>
+        current
+          ? {
+              unreadCount: Math.max(0, current.unreadCount - newlyReadCount),
+            }
+          : current,
     )
   }
 
@@ -276,10 +299,17 @@ export function NotificationsPage() {
     onSettled: () => void invalidateNotificationQueries(),
   })
 
-  const notifications = useMemo(
-    () => notificationsQuery.data?.notifications ?? [],
-    [notificationsQuery.data?.notifications],
-  )
+  const notifications = useMemo(() => {
+    const seenIds = new Set<number>()
+
+    return (notificationsQuery.data?.pages ?? []).flatMap((page) =>
+      page.notifications.filter((notification) => {
+        if (seenIds.has(notification.id)) return false
+        seenIds.add(notification.id)
+        return true
+      }),
+    )
+  }, [notificationsQuery.data?.pages])
   const visibleNotifications = useMemo(
     () =>
       filter === "unread"
@@ -291,10 +321,15 @@ export function NotificationsPage() {
     .filter((notification) => !notification.isRead)
     .map((notification) => notification.id)
   const unreadCount = unreadCountQuery.data?.unreadCount ?? unreadIds.length
-  const queryError = notificationsQuery.error ?? unreadCountQuery.error
-  const unauthorized = isUnauthorizedError(queryError)
-  const isLoading = notificationsQuery.isPending || unreadCountQuery.isPending
-  const isError = notificationsQuery.isError || unreadCountQuery.isError
+  const hasLoadedNotificationPage = notificationsQuery.data !== undefined
+  const initialListError =
+    !hasLoadedNotificationPage && notificationsQuery.isError
+      ? notificationsQuery.error
+      : null
+  const unauthorized = isUnauthorizedError(initialListError)
+  const isLoading = notificationsQuery.isPending
+  const isError = initialListError !== null
+  const unreadCountUnauthorized = isUnauthorizedError(unreadCountQuery.error)
 
   useDocumentTitle("알림 센터")
 
@@ -331,7 +366,7 @@ export function NotificationsPage() {
             <CheckCheck aria-hidden="true" />
             {markAllMutation.isPending
               ? "현재 목록 처리 중"
-              : unreadCount === 0
+              : unreadIds.length === 0
                 ? "현재 목록 읽음"
                 : "현재 목록 읽음 처리"}
           </Button>
@@ -410,6 +445,40 @@ export function NotificationsPage() {
             </div>
           </section>
 
+          {unreadCountQuery.isError ? (
+            <section
+              className="border-warning/20 bg-canvas mt-4 flex flex-col gap-3 rounded-xl border px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+              role="alert"
+              aria-label="읽지 않은 알림 수 확인 안내"
+            >
+              <p className="text-warning text-sm leading-6">
+                {unreadCountUnauthorized
+                  ? "로그인이 만료되어 전체 안 읽은 알림 수를 확인하지 못했어요."
+                  : "전체 안 읽은 알림 수를 확인하지 못했어요. 지금 불러온 목록을 기준으로 표시해요."}
+              </p>
+              {unreadCountUnauthorized ? (
+                <Button asChild variant="secondary" size="compact">
+                  <Link to="/login?redirect=%2Fnotifications">
+                    다시 로그인하기
+                  </Link>
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="compact"
+                  disabled={unreadCountQuery.isFetching}
+                  onClick={() => void unreadCountQuery.refetch()}
+                >
+                  <RefreshCw aria-hidden="true" />
+                  {unreadCountQuery.isFetching
+                    ? "알림 수 확인 중"
+                    : "알림 수 다시 확인"}
+                </Button>
+              )}
+            </section>
+          ) : null}
+
           <div className="mt-7 flex items-center justify-between gap-4">
             <div
               className="flex gap-2"
@@ -441,12 +510,6 @@ export function NotificationsPage() {
               {visibleNotifications.length}개의 알림
             </p>
           </div>
-
-          {notificationsQuery.data?.hasNext ? (
-            <p className="text-muted mt-4 text-sm">
-              최근 알림 100개를 보여 드리고 있어요.
-            </p>
-          ) : null}
 
           {visibleNotifications.length > 0 ? (
             <ul className="mt-4 grid gap-3" aria-label="알림 목록">
@@ -496,6 +559,34 @@ export function NotificationsPage() {
               }
             />
           )}
+
+          {notifications.length > 0 ? (
+            <div className="mt-5 flex flex-col items-center gap-2">
+              {notificationsQuery.hasNextPage ? (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="compact"
+                  disabled={notificationsQuery.isFetchingNextPage}
+                  onClick={() => void notificationsQuery.fetchNextPage()}
+                >
+                  {notificationsQuery.isFetchingNextPage
+                    ? "이전 알림을 불러오는 중"
+                    : "이전 알림 더 보기"}
+                </Button>
+              ) : (
+                <p className="text-muted text-sm" role="status">
+                  모든 알림을 확인했어요.
+                </p>
+              )}
+
+              {notificationsQuery.isFetchNextPageError ? (
+                <p className="text-critical text-sm" role="alert">
+                  이전 알림을 불러오지 못했어요. 다시 시도해 주세요.
+                </p>
+              ) : null}
+            </div>
+          ) : null}
         </>
       ) : null}
     </div>

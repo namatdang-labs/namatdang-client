@@ -1,4 +1,4 @@
-import { useEffect } from "react"
+import { useEffect, useSyncExternalStore } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import {
   Outlet,
@@ -11,16 +11,16 @@ import {
   ACCESS_TOKEN_STORAGE_KEY,
   AUTHENTICATION_REQUIRED_EVENT,
   clearAccessToken,
+  getAuthenticationSnapshot,
+  getAccessToken,
+  hasUsableAccessToken,
+  subscribeToAuthentication,
 } from "../features/auth/auth-session"
 import { getSafeInternalPath } from "../shared/lib/safe-internal-path"
 
 const authenticatedRoutePrefixes = [
-  "/app",
-  "/location",
   "/favorites",
   "/notifications",
-  "/stores",
-  "/deals",
   "/reservations",
   "/me",
   "/manage",
@@ -38,10 +38,24 @@ export function RootLayout() {
   const queryClient = useQueryClient()
   const { pathname } = location
 
+  useSyncExternalStore(
+    subscribeToAuthentication,
+    getAuthenticationSnapshot,
+    () => false,
+  )
+
+  useEffect(() => {
+    const accessToken = getAccessToken()
+    if (accessToken && !hasUsableAccessToken(accessToken)) clearAccessToken()
+  }, [])
+
   useEffect(() => {
     const handleAuthenticationRequired = () => {
-      const redirectTo = `${location.pathname}${location.search}`
       queryClient.clear()
+
+      if (!isAuthenticatedRoute(location.pathname)) return
+
+      const redirectTo = `${location.pathname}${location.search}`
       void navigate(`/login?redirect=${encodeURIComponent(redirectTo)}`, {
         replace: true,
       })

@@ -2,6 +2,7 @@ import { clientEnv } from "./env"
 import {
   clearAccessToken,
   getAccessToken,
+  hasUsableAccessToken,
   notifyAuthenticationRequired,
 } from "../../features/auth/auth-session"
 
@@ -39,7 +40,12 @@ async function parseResponse(response: Response) {
 async function request<T>(path: string, init: ApiRequestInit = {}) {
   const { auth = true, json, ...fetchInit } = init
   const headers = new Headers(fetchInit.headers)
-  const accessToken = auth ? getAccessToken() : null
+  const storedAccessToken = auth ? getAccessToken() : null
+  const accessToken = hasUsableAccessToken(storedAccessToken)
+    ? storedAccessToken
+    : null
+
+  if (storedAccessToken && !accessToken) clearAccessToken()
 
   if (json !== undefined && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json")
@@ -60,8 +66,10 @@ async function request<T>(path: string, init: ApiRequestInit = {}) {
     if (
       response.status === 401 &&
       auth &&
-      accessToken &&
-      getAccessToken() === accessToken
+      storedAccessToken &&
+      (accessToken
+        ? getAccessToken() === accessToken
+        : getAccessToken() === null)
     ) {
       clearAccessToken()
       notifyAuthenticationRequired()

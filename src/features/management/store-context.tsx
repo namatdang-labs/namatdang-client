@@ -6,8 +6,11 @@ import {
   useState,
   type ReactNode,
 } from "react"
+import { useQuery } from "@tanstack/react-query"
 import { Navigate } from "react-router"
 
+import { currentUserQueryOptions } from "../account/account-api"
+import { hasUserRole } from "../auth/user-roles"
 import { Button } from "../../shared/ui/button"
 import { useOwnerStores, type OwnerStore } from "./store-api"
 
@@ -25,7 +28,9 @@ const ManagementStoreContext =
   createContext<ManagementStoreContextValue | null>(null)
 
 export function ManagementStoreProvider({ children }: { children: ReactNode }) {
-  const storesQuery = useOwnerStores()
+  const currentUserQuery = useQuery(currentUserQueryOptions())
+  const isOwner = hasUserRole(currentUserQuery.data, "OWNER")
+  const storesQuery = useOwnerStores(currentUserQuery.isSuccess && isOwner)
   const stores = useMemo(
     () =>
       (storesQuery.data ?? []).map((store) => ({
@@ -38,7 +43,7 @@ export function ManagementStoreProvider({ children }: { children: ReactNode }) {
   const store =
     stores.find((candidate) => candidate.id === storeId) ?? stores[0]
 
-  if (storesQuery.isPending) {
+  if (currentUserQuery.isPending || (isOwner && storesQuery.isPending)) {
     return (
       <div
         className="bg-background text-muted flex min-h-svh items-center justify-center px-6 text-sm"
@@ -47,6 +52,33 @@ export function ManagementStoreProvider({ children }: { children: ReactNode }) {
         내 가게 정보를 불러오는 중이에요.
       </div>
     )
+  }
+
+  if (currentUserQuery.isError) {
+    return (
+      <div className="bg-background flex min-h-svh items-center justify-center px-6">
+        <section className="border-hairline bg-canvas max-w-md rounded-2xl border p-6 text-center">
+          <h1 className="text-foreground text-xl font-bold">
+            회원 정보를 불러오지 못했어요
+          </h1>
+          <p className="text-muted mt-2 text-sm leading-6">
+            네트워크 상태를 확인한 뒤 다시 시도해 주세요.
+          </p>
+          <Button
+            type="button"
+            variant="secondary"
+            className="mt-5"
+            onClick={() => void currentUserQuery.refetch()}
+          >
+            다시 시도
+          </Button>
+        </section>
+      </div>
+    )
+  }
+
+  if (!isOwner) {
+    return <Navigate to="/manage/onboarding" replace />
   }
 
   if (storesQuery.isError && stores.length === 0) {

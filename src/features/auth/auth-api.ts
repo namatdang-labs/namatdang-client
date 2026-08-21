@@ -11,7 +11,7 @@ export type LoginUserResponseDto = {
   id: number
   email: string
   name: string
-  role: UserRole
+  roles: UserRole[]
 }
 
 export type LoginResponseDto = {
@@ -28,16 +28,14 @@ export type SignupInput = {
   phoneNumber: string
 }
 
-export type SignupRequestDto = SignupInput & {
-  role: "CONSUMER"
-}
+export type SignupRequestDto = SignupInput
 
 export type SignupResponseDto = {
   id: number
   email: string
   name: string
   phoneNumber: string
-  role: UserRole
+  roles: UserRole[]
 }
 
 export function login(request: LoginRequestDto) {
@@ -47,8 +45,7 @@ export function login(request: LoginRequestDto) {
 }
 
 export function signup(input: SignupInput) {
-  const request: SignupRequestDto = { ...input, role: "CONSUMER" }
-  return apiClient.post<SignupResponseDto>("/auth/signup", request, {
+  return apiClient.post<SignupResponseDto>("/auth/signup", input, {
     auth: false,
   })
 }

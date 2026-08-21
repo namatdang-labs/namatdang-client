@@ -385,8 +385,8 @@ export const customerQueryKeys = {
   reservation: (reservationId: number) =>
     ["customer", "reservations", reservationId] as const,
   favorites: ["customer", "favorites"] as const,
-  notifications: (size = 100) =>
-    ["customer", "notifications", { size }] as const,
+  notifications: (size = 20) =>
+    ["customer", "notifications", "infinite", { size }] as const,
   unreadNotificationCount: [
     "customer",
     "notifications",
@@ -427,6 +427,7 @@ export async function getStoresOnMap({
 
   const response = await apiClient.get<StoreMapDto[]>(
     `/stores/map?${searchParams.toString()}`,
+    { auth: false },
   )
 
   return response.map(adaptStoreMap)
@@ -478,6 +479,7 @@ export async function getStores({
 
   const response = await apiClient.get<StorePageDto>(
     `/stores?${searchParams.toString()}`,
+    { auth: false },
   )
 
   return {
@@ -487,7 +489,9 @@ export async function getStores({
 }
 
 export async function getStore(storeId: number) {
-  const response = await apiClient.get<StoreDto>(`/stores/${storeId}`)
+  const response = await apiClient.get<StoreDto>(`/stores/${storeId}`, {
+    auth: false,
+  })
   return adaptStore(response)
 }
 
@@ -532,6 +536,7 @@ export async function getSellingDeals(params: SellingDealSearchParams = {}) {
 
   const response = await apiClient.get<SellingDealPageDto>(
     `/deals?${searchParams.toString()}`,
+    { auth: false },
   )
 
   return {
@@ -543,6 +548,7 @@ export async function getSellingDeals(params: SellingDealSearchParams = {}) {
 export async function getStoreDeals(storeId: number, page = 0, size = 20) {
   const response = await apiClient.get<SellingDealPageDto>(
     `/stores/${storeId}/deals?page=${page}&size=${size}`,
+    { auth: false },
   )
 
   return {
@@ -552,7 +558,9 @@ export async function getStoreDeals(storeId: number, page = 0, size = 20) {
 }
 
 export async function getDeal(dealId: number) {
-  const response = await apiClient.get<DealDetailDto>(`/deals/${dealId}`)
+  const response = await apiClient.get<DealDetailDto>(`/deals/${dealId}`, {
+    auth: false,
+  })
   return adaptDealDetail(response)
 }
 
@@ -643,9 +651,19 @@ export async function cancelReservation(
   return adaptReservationDetail(response)
 }
 
-export async function getNotifications(size = 100) {
+export async function getNotifications({
+  cursor,
+  size = 20,
+}: {
+  cursor?: number
+  size?: number
+} = {}) {
+  const searchParams = new URLSearchParams()
+  if (typeof cursor === "number") searchParams.set("cursor", String(cursor))
+  searchParams.set("size", String(size))
+
   const response = await apiClient.get<NotificationListDto>(
-    `/notifications?size=${size}`,
+    `/notifications?${searchParams.toString()}`,
   )
 
   return {
@@ -793,10 +811,16 @@ export const reservationQueryOptions = (reservationId: number) =>
     queryFn: () => getReservation(reservationId),
   })
 
-export const notificationsQueryOptions = (size = 100) =>
-  queryOptions({
+export const notificationsQueryOptions = (size = 20) =>
+  infiniteQueryOptions({
     queryKey: customerQueryKeys.notifications(size),
-    queryFn: () => getNotifications(size),
+    initialPageParam: null as number | null,
+    queryFn: ({ pageParam }) =>
+      getNotifications({ cursor: pageParam ?? undefined, size }),
+    getNextPageParam: (lastPage) =>
+      lastPage.hasNext && lastPage.nextCursor !== null
+        ? lastPage.nextCursor
+        : undefined,
   })
 
 export const unreadNotificationCountQueryOptions = () =>

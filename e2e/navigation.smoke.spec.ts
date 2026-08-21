@@ -62,10 +62,84 @@ test("방문자가 공개 랜딩에서 서비스 소개를 보고 회원가입�
   expect(pageErrors).toEqual([])
 })
 
+test("비회원이 로그인 없이 고객 공개 화면을 둘러본다", async ({ page }) => {
+  const api = await installMockApi(page, { authenticated: false })
+  const publicScreens = [
+    {
+      path: "/app",
+      heading: "지금 예약 가능한 할인",
+    },
+    {
+      path: "/map",
+      heading: "지도에서 가게 찾기",
+    },
+    {
+      path: "/location?returnTo=%2Fapp",
+      heading: "지도에서 위치 설정",
+    },
+    {
+      path: "/stores/101",
+      heading: "성수 빵연구소",
+    },
+    {
+      path: "/deals/501",
+      heading: "오늘의 소금빵 모음",
+    },
+  ] as const
+
+  for (const screen of publicScreens) {
+    await page.goto(screen.path, { waitUntil: "domcontentloaded" })
+    await expect(
+      page.getByRole("heading", { level: 1, name: screen.heading }),
+    ).toBeVisible()
+  }
+
+  expect(api.requests.length).toBeGreaterThan(0)
+  expect(api.requests.every(({ authorization }) => !authorization)).toBe(true)
+})
+
+test("비회원이 가게를 찜하려 하면 원래 화면으로 돌아오도록 로그인한다", async ({
+  page,
+}) => {
+  const api = await installMockApi(page, { authenticated: false })
+  await page.goto("/stores/101", { waitUntil: "domcontentloaded" })
+
+  await page.getByRole("button", { name: "로그인하고 찜하기" }).click()
+
+  await expect(page).toHaveURL(/\/login\?redirect=%2Fstores%2F101$/)
+  await expect(
+    page.getByRole("heading", { level: 1, name: "다시 만나서 반가워요" }),
+  ).toBeVisible()
+  expect(
+    api.requests.some(
+      ({ method, pathname }) =>
+        (method === "PUT" || method === "DELETE") &&
+        pathname.startsWith("/api/v1/favorites/"),
+    ),
+  ).toBe(false)
+})
+
+test("비회원이 보호된 찜 목록에 접근하면 로그인으로 이동한다", async ({
+  page,
+}) => {
+  const api = await installMockApi(page, { authenticated: false })
+  await page.goto("/favorites", { waitUntil: "domcontentloaded" })
+
+  await expect(page).toHaveURL(/\/login\?redirect=%2Ffavorites$/)
+  await expect(
+    page.getByRole("heading", { level: 1, name: "다시 만나서 반가워요" }),
+  ).toBeVisible()
+  expect(
+    api.requests.some(({ pathname }) =>
+      pathname.startsWith("/api/v1/favorites"),
+    ),
+  ).toBe(false)
+})
+
 test("고객이 지도 중심으로 동네를 선택하고 홈에서 확인한다", async ({
   page,
 }) => {
-  await installMockApi(page)
+  const api = await installMockApi(page, { authenticated: false })
   await page.addInitScript(() => {
     Reflect.set(window, "__namatdangGeolocationCalls", 0)
     Object.defineProperty(window.navigator, "geolocation", {
@@ -149,6 +223,7 @@ test("고객이 지도 중심으로 동네를 선택하고 홈에서 확인한�
       Number(Reflect.get(window, "__namatdangGeolocationCalls") ?? 0),
     ),
   ).toBe(0)
+  expect(api.requests.every(({ authorization }) => !authorization)).toBe(true)
 })
 
 test("고객이 품목 수량을 고르고 예약을 완료한다", async ({ page }) => {
@@ -250,10 +325,23 @@ test("고객이 품목 수량을 고르고 예약을 완료한다", async ({ pag
         Boolean(idempotencyKey),
     ),
   ).toBe(true)
+  const publicReadRequests = api.requests.filter(
+    ({ method, pathname }) =>
+      method === "GET" &&
+      (pathname.startsWith("/api/v1/stores") ||
+        pathname.startsWith("/api/v1/deals")),
+  )
+  expect(publicReadRequests.length).toBeGreaterThan(0)
+  expect(publicReadRequests.every(({ authorization }) => !authorization)).toBe(
+    true,
+  )
   expect(
-    api.requests.every(
-      ({ authorization }) => authorization === `Bearer ${FUTURE_ACCESS_TOKEN}`,
-    ),
+    api.requests
+      .filter((request) => !publicReadRequests.includes(request))
+      .every(
+        ({ authorization }) =>
+          authorization === `Bearer ${FUTURE_ACCESS_TOKEN}`,
+      ),
   ).toBe(true)
 })
 
@@ -291,10 +379,20 @@ test("고객이 API 찜 목록을 정리하고 알림을 모두 읽는다", asyn
 
 test("일반 회원이 가게를 등록하고 관리 화면으로 진입한다", async ({ page }) => {
   const api = await installMockApi(page, { hasOwnerStore: false })
-  await page.goto("/app", { waitUntil: "domcontentloaded" })
+  await page.goto("/manage/onboarding", { waitUntil: "domcontentloaded" })
 
-  await page.getByRole("link", { name: "가게 관리" }).click()
   await expect(page).toHaveURL(/\/manage\/onboarding$/)
+  await expect(
+    page.getByRole("heading", { level: 1, name: "등록한 가게가 아직 없어요" }),
+  ).toBeVisible()
+  expect(api.currentUser?.roles).toEqual(["CONSUMER"])
+  expect(
+    api.requests.some(
+      ({ method, pathname }) =>
+        method === "GET" && pathname.startsWith("/api/v1/owner/stores"),
+    ),
+  ).toBe(false)
+
   await page.getByRole("link", { name: "가게 등록하기" }).click()
 
   await page.getByRole("textbox", { name: /가게 이름/ }).fill("성수 오늘빵")
@@ -336,6 +434,7 @@ test("일반 회원이 가게를 등록하고 관리 화면으로 진입한다",
     latitude: 37.5445,
     longitude: 127.056,
   })
+  expect(api.currentUser?.roles).toEqual(["CONSUMER", "OWNER"])
   expect(
     api.requests.some(
       ({ method, pathname }) =>

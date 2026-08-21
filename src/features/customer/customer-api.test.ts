@@ -173,7 +173,7 @@ describe("customer API request", () => {
       "/api/v1/stores?page=0&size=20&keyword=%EC%84%B1%EC%88%98",
       "/api/v1/stores/17",
       "/api/v1/favorites",
-      "/api/v1/notifications?size=100",
+      "/api/v1/notifications?size=20",
       "/api/v1/notifications/unread-count",
     ])
   })

@@ -37,7 +37,18 @@ export type MockNotificationDto = {
   createdAt: string
 }
 
+export type MockCurrentUser = {
+  id: number
+  email: string
+  name: string
+  phoneNumber: string
+  roles: Array<"CONSUMER" | "OWNER">
+  createdAt: string
+  updatedAt: string
+}
+
 export type MockApiState = {
+  currentUser: MockCurrentUser | null
   stores: MockStoreDto[]
   favorites: MockStoreDto[]
   notifications: MockNotificationDto[]
@@ -262,7 +273,23 @@ export const mockNotifications: MockNotificationDto[] = [
 export function createMockApiState(
   overrides: Partial<Omit<MockApiState, "requests">> = {},
 ): MockApiState {
+  const ownerStores = structuredClone(overrides.ownerStores ?? [mockOwnerStore])
+
   return {
+    currentUser: structuredClone(
+      overrides.currentUser ?? {
+        id: 1,
+        email: "owner@namatdang.test",
+        name: "남았당",
+        phoneNumber: "010-1234-5678",
+        roles:
+          ownerStores.length > 0
+            ? (["CONSUMER", "OWNER"] as MockCurrentUser["roles"])
+            : (["CONSUMER"] as MockCurrentUser["roles"]),
+        createdAt: "2026-08-01T09:00:00+09:00",
+        updatedAt: "2026-08-19T09:00:00+09:00",
+      },
+    ),
     stores: structuredClone(overrides.stores ?? mockStores),
     favorites: structuredClone(overrides.favorites ?? mockStores),
     notifications: structuredClone(
@@ -271,7 +298,7 @@ export function createMockApiState(
     deals: structuredClone(overrides.deals ?? mockDeals),
     dealDetails: structuredClone(overrides.dealDetails ?? mockDealDetails),
     reservations: structuredClone(overrides.reservations ?? mockReservations),
-    ownerStores: structuredClone(overrides.ownerStores ?? [mockOwnerStore]),
+    ownerStores,
     ownerDeals: structuredClone(overrides.ownerDeals ?? mockOwnerDeals),
     ownerDealDetails: structuredClone(
       overrides.ownerDealDetails ?? mockOwnerDealDetails,
@@ -648,10 +675,20 @@ export function createMockApiFetch(state: MockApiState) {
     }
 
     if (method === "GET" && url.pathname === "/api/v1/notifications") {
+      const size = Number(url.searchParams.get("size") ?? 20)
+      const cursor = url.searchParams.get("cursor")
+      const cursorIndex = cursor
+        ? state.notifications.findIndex(({ id }) => id === Number(cursor))
+        : -1
+      const start = cursorIndex >= 0 ? cursorIndex + 1 : 0
+      const notifications = state.notifications.slice(start, start + size)
+      const hasNext = start + notifications.length < state.notifications.length
+
       return jsonResponse({
-        notifications: state.notifications,
-        nextCursor: null,
-        hasNext: false,
+        notifications,
+        nextCursor:
+          hasNext && notifications.length > 0 ? notifications.at(-1)?.id : null,
+        hasNext,
       })
     }
 
@@ -669,16 +706,39 @@ export function createMockApiFetch(state: MockApiState) {
       return new Response(null, { status: 204 })
     }
 
-    if (method === "GET" && url.pathname === "/api/v1/users/me") {
-      return jsonResponse({
-        id: 1,
-        email: "owner@namatdang.test",
-        name: "남았당",
-        phoneNumber: "010-1234-5678",
-        role: state.ownerStores.length > 0 ? "OWNER" : "CONSUMER",
-        createdAt: "2026-08-01T09:00:00+09:00",
-        updatedAt: "2026-08-19T09:00:00+09:00",
-      })
+    if (url.pathname === "/api/v1/users/me") {
+      if (!state.currentUser) {
+        return jsonResponse({ message: "회원을 찾을 수 없어요." }, 404)
+      }
+
+      if (method === "GET") return jsonResponse(state.currentUser)
+
+      if (method === "PATCH") {
+        const body = JSON.parse(String(init?.body)) as {
+          name?: string
+          phoneNumber?: string
+        }
+        state.currentUser = {
+          ...state.currentUser,
+          ...body,
+          updatedAt: "2026-08-21T10:00:00+09:00",
+        }
+        return jsonResponse(state.currentUser)
+      }
+
+      if (method === "DELETE") {
+        if (state.ownerStores.length > 0) {
+          return jsonResponse(
+            {
+              code: "OWNER_HAS_STORES",
+              message: "가게를 보유한 회원은 탈퇴할 수 없어요.",
+            },
+            409,
+          )
+        }
+        state.currentUser = null
+        return new Response(null, { status: 204 })
+      }
     }
 
     if (method === "GET" && url.pathname === "/api/v1/owner/stores") {
@@ -694,6 +754,9 @@ export function createMockApiFetch(state: MockApiState) {
         longitude: body.longitude ?? null,
       }
       state.ownerStores = [createdStore]
+      if (state.currentUser) {
+        state.currentUser.roles = ["CONSUMER", "OWNER"]
+      }
       return jsonResponse(createdStore, 201)
     }
 

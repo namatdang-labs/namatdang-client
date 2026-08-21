@@ -9,8 +9,9 @@ import {
   RefreshCw,
   Store,
 } from "lucide-react"
-import { Link, useParams } from "react-router"
+import { Link, useLocation, useNavigate, useParams } from "react-router"
 
+import { hasUsableAccessToken } from "../../features/auth/auth-session"
 import {
   addFavorite,
   customerQueryKeys,
@@ -191,6 +192,7 @@ function StoreDetailSkeleton() {
 function ApiStoreDetail({
   store,
   isFavorite,
+  authenticated,
   favoritePending,
   favoriteUnavailable,
   mutationError,
@@ -198,6 +200,7 @@ function ApiStoreDetail({
 }: {
   store: StoreView
   isFavorite: boolean
+  authenticated: boolean
   favoritePending: boolean
   favoriteUnavailable: boolean
   mutationError: string
@@ -211,7 +214,7 @@ function ApiStoreDetail({
           <button
             type="button"
             className="bg-canvas/95 text-foreground absolute top-4 right-4 inline-flex min-h-11 items-center gap-2 rounded-full px-4 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-60"
-            aria-pressed={isFavorite}
+            aria-pressed={authenticated ? isFavorite : undefined}
             disabled={favoritePending || favoriteUnavailable}
             onClick={onToggleFavorite}
           >
@@ -222,11 +225,13 @@ function ApiStoreDetail({
             />
             {favoritePending
               ? "찜 처리 중"
-              : favoriteUnavailable
-                ? "찜 확인 불가"
-                : isFavorite
-                  ? "찜한 가게"
-                  : "찜하기"}
+              : !authenticated
+                ? "로그인하고 찜하기"
+                : favoriteUnavailable
+                  ? "찜 확인 불가"
+                  : isFavorite
+                    ? "찜한 가게"
+                    : "찜하기"}
           </button>
         </div>
 
@@ -353,6 +358,9 @@ export function StoreDetailPage() {
   const { storeId } = useParams()
   const numericStoreId = parseNumericStoreId(storeId)
   const hasValidStoreId = numericStoreId !== null
+  const authenticated = hasUsableAccessToken()
+  const location = useLocation()
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [mutationError, setMutationError] = useState("")
   const storeQuery = useQuery({
@@ -361,7 +369,7 @@ export function StoreDetailPage() {
   })
   const favoritesQuery = useQuery({
     ...favoriteStoresQueryOptions(),
-    enabled: hasValidStoreId && storeQuery.isSuccess,
+    enabled: authenticated && hasValidStoreId && storeQuery.isSuccess,
   })
   const favoriteMutation = useMutation({
     mutationFn: ({
@@ -478,17 +486,25 @@ export function StoreDetailPage() {
         <ApiStoreDetail
           store={storeQuery.data}
           isFavorite={isFavorite}
+          authenticated={authenticated}
           favoritePending={
-            favoritesQuery.isPending || favoriteMutation.isPending
+            authenticated &&
+            (favoritesQuery.isPending || favoriteMutation.isPending)
           }
-          favoriteUnavailable={favoritesQuery.isError}
+          favoriteUnavailable={authenticated && favoritesQuery.isError}
           mutationError={mutationError}
-          onToggleFavorite={() =>
+          onToggleFavorite={() => {
+            if (!authenticated) {
+              const redirectTo = `${location.pathname}${location.search}`
+              void navigate(`/login?redirect=${encodeURIComponent(redirectTo)}`)
+              return
+            }
+
             favoriteMutation.mutate({
               targetStoreId: storeQuery.data.id,
               shouldFavorite: !isFavorite,
             })
-          }
+          }}
         />
       ) : null}
     </CustomerPage>

@@ -21,7 +21,7 @@ test("로그인 API가 서버 응답 DTO를 반환한다", async () => {
       id: 12,
       email: "user@example.com",
       name: "남았당",
-      role: "CONSUMER" as const,
+      roles: ["CONSUMER"] as const,
     },
   }
   const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
@@ -46,7 +46,7 @@ test("로그인 API가 서버 응답 DTO를 반환한다", async () => {
   })
 })
 
-test("회원가입 API가 사용자 선택 없이 일반 회원 역할을 고정해 보낸다", async () => {
+test("회원가입 API가 역할 필드 없이 가입 정보를 보낸다", async () => {
   const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
     new Response(
       JSON.stringify({
@@ -54,7 +54,7 @@ test("회원가입 API가 사용자 선택 없이 일반 회원 역할을 고정
         email: "new@example.com",
         name: "신규회원",
         phoneNumber: "010-1234-5678",
-        role: "CONSUMER",
+        roles: ["CONSUMER"],
       }),
       { status: 201, headers: jsonHeaders },
     ),
@@ -75,6 +75,5 @@ test("회원가입 API가 사용자 선택 없이 일반 회원 역할을 고정
     password: "password123",
     name: "신규회원",
     phoneNumber: "010-1234-5678",
-    role: "CONSUMER",
   })
 })
