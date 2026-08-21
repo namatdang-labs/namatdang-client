@@ -11,8 +11,9 @@ import {
   Store,
   X,
 } from "lucide-react"
-import { Link, useNavigate, useParams } from "react-router"
+import { Link, useLocation, useNavigate, useParams } from "react-router"
 
+import { hasUsableAccessToken } from "../../features/auth/auth-session"
 import {
   createReservation,
   customerQueryKeys,
@@ -93,6 +94,8 @@ export function DealDetailPage() {
   const { dealId } = useParams()
   const numericDealId = parseNumericDealId(dealId)
   const hasValidDealId = numericDealId !== null
+  const authenticated = hasUsableAccessToken()
+  const location = useLocation()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [isReviewOpen, setIsReviewOpen] = useState(false)
@@ -267,6 +270,12 @@ export function DealDetailPage() {
   }
 
   const submitReservation = () => {
+    if (!authenticated) {
+      const redirectTo = `${location.pathname}${location.search}`
+      navigate(`/login?redirect=${encodeURIComponent(redirectTo)}`)
+      return
+    }
+
     const request: ReservationCreateRequest = {
       dealId: deal.dealId,
       items: selectedItems.map((item) => ({
@@ -285,6 +294,17 @@ export function DealDetailPage() {
       request,
       idempotencyKey: attemptRef.current.idempotencyKey,
     })
+  }
+
+  const openReservationReview = () => {
+    if (!authenticated) {
+      const redirectTo = `${location.pathname}${location.search}`
+      navigate(`/login?redirect=${encodeURIComponent(redirectTo)}`)
+      return
+    }
+
+    setReservationError("")
+    setIsReviewOpen(true)
   }
 
   return (
@@ -473,13 +493,12 @@ export function DealDetailPage() {
               <Button
                 type="button"
                 className="hidden w-full lg:inline-flex"
-                disabled={totalQuantity === 0 || !isReservable}
-                onClick={() => {
-                  setReservationError("")
-                  setIsReviewOpen(true)
-                }}
+                disabled={
+                  !isReservable || (authenticated && totalQuantity === 0)
+                }
+                onClick={openReservationReview}
               >
-                선택 확인하기
+                {authenticated ? "선택 확인하기" : "로그인하고 예약하기"}
               </Button>
             </div>
           </SectionCard>
@@ -497,13 +516,10 @@ export function DealDetailPage() {
           <Button
             type="button"
             className="flex-1"
-            disabled={totalQuantity === 0 || !isReservable}
-            onClick={() => {
-              setReservationError("")
-              setIsReviewOpen(true)
-            }}
+            disabled={!isReservable || (authenticated && totalQuantity === 0)}
+            onClick={openReservationReview}
           >
-            선택 확인하기
+            {authenticated ? "선택 확인하기" : "로그인하고 예약하기"}
           </Button>
         </div>
       </div>

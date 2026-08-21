@@ -39,7 +39,18 @@ type NotificationDto = {
   createdAt: string
 }
 
+type CurrentUserDto = {
+  id: number
+  email: string
+  name: string
+  phoneNumber: string
+  roles: Array<"CONSUMER" | "OWNER">
+  createdAt: string
+  updatedAt: string
+}
+
 export type BrowserMockApiState = {
+  currentUser: CurrentUserDto | null
   stores: StoreDto[]
   favorites: StoreDto[]
   notifications: NotificationDto[]
@@ -381,27 +392,40 @@ async function fulfillJson(route: Route, payload: unknown, status = 200) {
 
 export async function installMockApi(
   page: Page,
-  options: { hasOwnerStore?: boolean } = {},
+  options: { hasOwnerStore?: boolean; authenticated?: boolean } = {},
 ) {
   await installMockNaverMaps(page)
 
+  const ownerStores = options.hasOwnerStore === false ? [] : [clone(ownerStore)]
+
   const state: BrowserMockApiState = {
+    currentUser: {
+      id: 1,
+      email: "owner@namatdang.test",
+      name: "남았당",
+      phoneNumber: "010-1234-5678",
+      roles: ownerStores.length > 0 ? ["CONSUMER", "OWNER"] : ["CONSUMER"],
+      createdAt: "2026-08-01T09:00:00+09:00",
+      updatedAt: "2026-08-19T09:00:00+09:00",
+    },
     stores: clone(customerStores),
     favorites: clone(customerStores),
     notifications: clone(notifications),
     deals: clone(deals),
     dealDetails: clone(dealDetails),
     reservations: clone(reservations),
-    ownerStores: options.hasOwnerStore === false ? [] : [clone(ownerStore)],
+    ownerStores,
     ownerDeals: clone(ownerDeals),
     ownerDealDetails: clone(ownerDealDetails),
     ownerReservations: clone(ownerReservations),
     requests: [],
   }
 
-  await page.addInitScript((accessToken) => {
-    window.localStorage.setItem("namatdang.auth.access-token", accessToken)
-  }, FUTURE_ACCESS_TOKEN)
+  if (options.authenticated !== false) {
+    await page.addInitScript((accessToken) => {
+      window.localStorage.setItem("namatdang.auth.access-token", accessToken)
+    }, FUTURE_ACCESS_TOKEN)
+  }
 
   await page.route("**/api/v1/**", async (route) => {
     const request = route.request()
@@ -638,10 +662,23 @@ export async function installMockApi(
     }
 
     if (method === "GET" && url.pathname === "/api/v1/notifications") {
+      const size = Number(url.searchParams.get("size") ?? 20)
+      const cursor = url.searchParams.get("cursor")
+      const cursorIndex = cursor
+        ? state.notifications.findIndex(({ id }) => id === Number(cursor))
+        : -1
+      const start = cursorIndex >= 0 ? cursorIndex + 1 : 0
+      const pageNotifications = state.notifications.slice(start, start + size)
+      const hasNext =
+        start + pageNotifications.length < state.notifications.length
+
       return fulfillJson(route, {
-        notifications: state.notifications,
-        nextCursor: null,
-        hasNext: false,
+        notifications: pageNotifications,
+        nextCursor:
+          hasNext && pageNotifications.length > 0
+            ? pageNotifications.at(-1)?.id
+            : null,
+        hasNext,
       })
     }
 
@@ -659,16 +696,40 @@ export async function installMockApi(
       return route.fulfill({ status: 204, body: "" })
     }
 
-    if (method === "GET" && url.pathname === "/api/v1/users/me") {
-      return fulfillJson(route, {
-        id: 1,
-        email: "owner@namatdang.test",
-        name: "남았당",
-        phoneNumber: "010-1234-5678",
-        role: state.ownerStores.length > 0 ? "OWNER" : "CONSUMER",
-        createdAt: "2026-08-01T09:00:00+09:00",
-        updatedAt: "2026-08-19T09:00:00+09:00",
-      })
+    if (url.pathname === "/api/v1/users/me") {
+      if (!state.currentUser) {
+        return fulfillJson(route, { message: "not found" }, 404)
+      }
+
+      if (method === "GET") return fulfillJson(route, state.currentUser)
+
+      if (method === "PATCH") {
+        const body = request.postDataJSON() as {
+          name?: string
+          phoneNumber?: string
+        }
+        state.currentUser = {
+          ...state.currentUser,
+          ...body,
+          updatedAt: "2026-08-21T10:00:00+09:00",
+        }
+        return fulfillJson(route, state.currentUser)
+      }
+
+      if (method === "DELETE") {
+        if (state.ownerStores.length > 0) {
+          return fulfillJson(
+            route,
+            {
+              code: "OWNER_HAS_STORES",
+              message: "가게를 보유한 회원은 탈퇴할 수 없어요.",
+            },
+            409,
+          )
+        }
+        state.currentUser = null
+        return route.fulfill({ status: 204, body: "" })
+      }
     }
 
     if (method === "GET" && url.pathname === "/api/v1/owner/stores") {
@@ -684,6 +745,9 @@ export async function installMockApi(
         longitude: body.longitude ?? null,
       }
       state.ownerStores = [createdStore]
+      if (state.currentUser) {
+        state.currentUser.roles = ["CONSUMER", "OWNER"]
+      }
       return fulfillJson(route, createdStore, 201)
     }
 

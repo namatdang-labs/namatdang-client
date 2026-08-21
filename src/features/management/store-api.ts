@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 
 import { apiClient } from "../../shared/api/client"
+import type { CurrentUser } from "../account/account-api"
 import { customerQueryKeys } from "../customer/customer-api"
 
 export type OwnerStore = {
@@ -40,10 +41,11 @@ export function updateOwnerStore(storeId: number, request: StoreWriteRequest) {
   return apiClient.patch<OwnerStore>(`owner/stores/${storeId}`, request)
 }
 
-export function useOwnerStores() {
+export function useOwnerStores(enabled = true) {
   return useQuery({
     queryKey: ownerStoreKeys.all,
     queryFn: getOwnerStores,
+    enabled,
   })
 }
 
@@ -61,6 +63,16 @@ export function useCreateOwnerStore() {
             )
           : [...stores, createdStore]
       })
+      queryClient.setQueryData<CurrentUser>(["auth", "me"], (current) =>
+        current
+          ? {
+              ...current,
+              roles: current.roles.includes("OWNER")
+                ? current.roles
+                : [...current.roles, "OWNER"],
+            }
+          : current,
+      )
       await queryClient.invalidateQueries({ queryKey: ["auth", "me"] })
       await queryClient.invalidateQueries({
         queryKey: ["customer", "stores"],

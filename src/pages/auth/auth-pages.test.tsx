@@ -48,7 +48,7 @@ test("로그인에 성공하면 토큰을 저장하고 요청했던 내부 화�
             id: 1,
             email: "user@example.com",
             name: "회원",
-            role: "CONSUMER",
+            roles: ["CONSUMER"],
           },
         }),
         { status: 200, headers: jsonHeaders },
@@ -91,7 +91,7 @@ test.each([
               id: 1,
               email: "user@example.com",
               name: "회원",
-              role: "CONSUMER",
+              roles: ["CONSUMER"],
             },
           }),
           { status: 200, headers: jsonHeaders },
@@ -151,7 +151,7 @@ test("로그인 화면에는 아직 제공하지 않는 비밀번호 재설정 �
   expect(screen.queryByText(/API 연결 후 제공/)).not.toBeInTheDocument()
 })
 
-test("회원가입은 일반 회원 역할로 요청하고 로그인 이동 경로를 유지한다", async () => {
+test("회원가입은 역할 필드 없이 요청하고 로그인 이동 경로를 유지한다", async () => {
   const user = userEvent.setup()
   const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
     new Response(
@@ -160,7 +160,7 @@ test("회원가입은 일반 회원 역할로 요청하고 로그인 이동 경�
         email: "new@example.com",
         name: "신규회원",
         phoneNumber: "010-1234-5678",
-        role: "CONSUMER",
+        roles: ["CONSUMER"],
       }),
       { status: 201, headers: jsonHeaders },
     ),
@@ -209,6 +209,5 @@ test("회원가입은 일반 회원 역할로 요청하고 로그인 이동 경�
     email: "new@example.com",
     phoneNumber: "010-1234-5678",
     password: "password123",
-    role: "CONSUMER",
   })
 })

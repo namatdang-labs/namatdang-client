@@ -148,33 +148,35 @@ export const router = createBrowserRouter([
       },
       {
         Component: CustomerLayout,
-        loader: requireAuthentication,
         children: [
           { path: "app", lazy: loadHomePage },
-          { path: "favorites", lazy: loadFavoritesPage },
-          { path: "notifications", lazy: loadNotificationsPage },
           { path: "stores/:storeId", lazy: loadStoreDetailPage },
           { path: "deals/:dealId", lazy: loadDealDetailPage },
           {
-            path: "reservations/complete",
-            lazy: loadReservationCompletePage,
+            loader: requireAuthentication,
+            children: [
+              { path: "favorites", lazy: loadFavoritesPage },
+              { path: "notifications", lazy: loadNotificationsPage },
+              {
+                path: "reservations/complete",
+                lazy: loadReservationCompletePage,
+              },
+              { path: "reservations", lazy: loadReservationsPage },
+              {
+                path: "reservations/:reservationId",
+                lazy: loadReservationDetailPage,
+              },
+              { path: "me", lazy: loadMyPage },
+            ],
           },
-          { path: "reservations", lazy: loadReservationsPage },
-          {
-            path: "reservations/:reservationId",
-            lazy: loadReservationDetailPage,
-          },
-          { path: "me", lazy: loadMyPage },
         ],
       },
       {
         path: "map",
-        loader: requireAuthentication,
         lazy: loadStoreMapPage,
       },
       {
         path: "location",
-        loader: requireAuthentication,
         lazy: loadLocationSelectionPage,
       },
       {

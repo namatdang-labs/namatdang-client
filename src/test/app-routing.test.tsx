@@ -143,11 +143,16 @@ async function renderApp(path: string) {
 
 test("공개 랜딩을 포함한 22개 핵심 화면을 대표 경로에서 렌더링한다", async () => {
   apiState.ownerStores = []
+  if (apiState.currentUser) apiState.currentUser.roles = ["CONSUMER"]
   const { queryClient } = await renderApp(coreScreens[0][1])
 
   for (const [screenName, path, heading] of coreScreens) {
     if (path === "/manage") {
       apiState.ownerStores = [structuredClone(mockOwnerStore)]
+      if (apiState.currentUser) {
+        apiState.currentUser.roles = ["CONSUMER", "OWNER"]
+        queryClient.setQueryData(["auth", "me"], apiState.currentUser)
+      }
       queryClient.setQueryData(["owner", "stores"], apiState.ownerStores)
     }
 
@@ -164,9 +169,22 @@ test("공개 랜딩을 포함한 22개 핵심 화면을 대표 경로에서 렌�
     ).toBe(path)
   }
 
+  const apiRequests = apiState.requests.filter(({ pathname }) =>
+    pathname.startsWith("/api/v1/"),
+  )
+  const publicReadRequests = apiRequests.filter(
+    ({ method, pathname }) =>
+      method === "GET" &&
+      (pathname.startsWith("/api/v1/stores") ||
+        pathname.startsWith("/api/v1/deals")),
+  )
+  expect(publicReadRequests.length).toBeGreaterThan(0)
   expect(
-    apiState.requests
-      .filter(({ pathname }) => pathname.startsWith("/api/v1/"))
+    publicReadRequests.every(({ authorization }) => authorization === null),
+  ).toBe(true)
+  expect(
+    apiRequests
+      .filter((request) => !publicReadRequests.includes(request))
       .every(
         ({ authorization }) =>
           authorization === `Bearer ${FUTURE_ACCESS_TOKEN}`,
@@ -256,33 +274,49 @@ test.each([
   },
 )
 
-test("로그인하지 않으면 지도 경로도 원래 위치를 기억한 로그인 화면으로 이동한다", async () => {
-  clearAccessToken()
-  window.localStorage.clear()
-
-  await renderApp("/map")
-
-  expect(
-    await screen.findByRole("heading", {
-      level: 1,
-      name: "다시 만나서 반가워요",
-    }),
-  ).toBeInTheDocument()
-  expect(router.state.location.pathname).toBe("/login")
-  expect(router.state.location.search).toBe("?redirect=%2Fmap")
-})
-
 test.each([
-  ["토큰 없음", null],
-  ["만료 토큰", EXPIRED_ACCESS_TOKEN],
+  ["홈", "/app", "지금 예약 가능한 할인"],
+  ["지도", "/map", "지도에서 가게 찾기"],
+  ["위치 설정", "/location?returnTo=%2Fapp", "지도에서 위치 설정"],
+  ["가게 상세", "/stores/101", "성수 빵연구소"],
+  ["할인 상세", "/deals/501", "오늘의 소금빵 모음"],
 ] as const)(
-  "위치 설정의 %s은 returnTo를 포함한 원래 경로를 기억한다",
-  async (_caseName, accessToken) => {
+  "비회원도 %s 화면을 로그인 없이 볼 수 있다",
+  async (_screenName, path, heading) => {
     clearAccessToken()
     window.localStorage.clear()
-    if (accessToken) saveAccessToken(accessToken)
 
-    await renderApp("/location?returnTo=%2Fapp")
+    await renderApp(path)
+
+    expect(
+      await screen.findByRole("heading", {
+        level: 1,
+        name: heading,
+      }),
+    ).toBeInTheDocument()
+    expect(
+      `${router.state.location.pathname}${router.state.location.search}`,
+    ).toBe(path)
+    expect(getAccessToken()).toBeNull()
+    expect(
+      apiState.requests.every(({ authorization }) => authorization === null),
+    ).toBe(true)
+  },
+)
+
+test.each([
+  ["찜", "/favorites"],
+  ["알림", "/notifications"],
+  ["예약", "/reservations"],
+  ["마이", "/me"],
+  ["가게 관리", "/manage"],
+] as const)(
+  "비회원이 %s 화면에 접근하면 로그인 후 돌아오도록 안내한다",
+  async (_name, path) => {
+    clearAccessToken()
+    window.localStorage.clear()
+
+    await renderApp(path)
 
     expect(
       await screen.findByRole("heading", {
@@ -292,13 +326,69 @@ test.each([
     ).toBeInTheDocument()
     expect(router.state.location.pathname).toBe("/login")
     expect(router.state.location.search).toBe(
-      "?redirect=%2Flocation%3FreturnTo%3D%252Fapp",
+      `?redirect=${encodeURIComponent(path)}`,
     )
-    expect(getAccessToken()).toBeNull()
   },
 )
 
-test("위치 설정 중 다른 탭에서 로그아웃하면 현재 경로를 기억한다", async () => {
+test("비회원이 가게를 찜하려 하면 로그인 후 같은 가게로 돌아온다", async () => {
+  clearAccessToken()
+  window.localStorage.clear()
+  const user = userEvent.setup()
+
+  await renderApp("/stores/101")
+  await user.click(
+    await screen.findByRole("button", { name: "로그인하고 찜하기" }),
+  )
+
+  expect(router.state.location.pathname).toBe("/login")
+  expect(router.state.location.search).toBe("?redirect=%2Fstores%2F101")
+  expect(
+    apiState.requests.some(({ pathname }) =>
+      pathname.startsWith("/api/v1/favorites"),
+    ),
+  ).toBe(false)
+})
+
+test("비회원이 할인을 예약하려 하면 로그인 후 같은 할인으로 돌아온다", async () => {
+  clearAccessToken()
+  window.localStorage.clear()
+  const user = userEvent.setup()
+
+  await renderApp("/deals/501")
+  const reservationButtons = await screen.findAllByRole("button", {
+    name: "로그인하고 예약하기",
+  })
+  await user.click(reservationButtons[0])
+
+  expect(router.state.location.pathname).toBe("/login")
+  expect(router.state.location.search).toBe("?redirect=%2Fdeals%2F501")
+  expect(
+    apiState.requests.some(
+      ({ method, pathname }) =>
+        method === "POST" && pathname === "/api/v1/reservations",
+    ),
+  ).toBe(false)
+})
+
+test("만료 토큰이 있어도 공개 홈을 보고 토큰은 정리한다", async () => {
+  clearAccessToken()
+  window.localStorage.clear()
+  saveAccessToken(EXPIRED_ACCESS_TOKEN)
+
+  await renderApp("/app")
+
+  expect(
+    await screen.findByRole("heading", {
+      level: 1,
+      name: "지금 예약 가능한 할인",
+    }),
+  ).toBeInTheDocument()
+  expect(router.state.location.pathname).toBe("/app")
+  expect(getAccessToken()).toBeNull()
+})
+
+test("공개 위치 설정 중 다른 탭에서 로그아웃해도 화면을 유지한다", async () => {
   await renderApp("/location?returnTo=%2Fapp")
   expect(
     await screen.findByRole("heading", {
@@ -319,15 +409,14 @@ test("위치 설정 중 다른 탭에서 로그아웃하면 현재 경로를 기
   })
 
   expect(
-    await screen.findByRole("heading", {
+    screen.getByRole("heading", {
       level: 1,
-      name: "다시 만나서 반가워요",
+      name: "지도에서 위치 설정",
     }),
   ).toBeInTheDocument()
-  expect(router.state.location.pathname).toBe("/login")
-  expect(router.state.location.search).toBe(
-    "?redirect=%2Flocation%3FreturnTo%3D%252Fapp",
-  )
+  expect(router.state.location.pathname).toBe("/location")
+  expect(router.state.location.search).toBe("?returnTo=%2Fapp")
+  expect(getAccessToken()).toBeNull()
 })
 
 test("홈에서 지도 중심으로 동네를 선택하고 선택한 라벨을 표시한다", async () => {
@@ -496,10 +585,20 @@ test("헤더에서 API 알림 센터를 열고 안 읽은 알림을 모두 읽�
 
 test("일반 회원이 가게를 등록하면 생성 API 응답으로 관리 화면에 진입한다", async () => {
   apiState.ownerStores = []
+  if (apiState.currentUser) apiState.currentUser.roles = ["CONSUMER"]
   const user = userEvent.setup()
   await renderApp("/manage/onboarding")
 
-  await user.click(await screen.findByRole("link", { name: "가게 등록하기" }))
+  const registrationLink = await screen.findByRole("link", {
+    name: "가게 등록하기",
+  })
+  expect(
+    apiState.requests.some(
+      ({ method, pathname }) =>
+        method === "GET" && pathname === "/api/v1/owner/stores",
+    ),
+  ).toBe(false)
+  await user.click(registrationLink)
   expect(
     await screen.findByRole("heading", { level: 1, name: "가게 등록" }),
   ).toBeInTheDocument()
@@ -549,6 +648,7 @@ test("일반 회원이 가게를 등록하면 생성 API 응답으로 관리 화
         method === "POST" && pathname === "/api/v1/owner/stores",
     ),
   ).toBe(true)
+  expect(apiState.currentUser?.roles).toEqual(["CONSUMER", "OWNER"])
 })
 
 test("할인 등록 폼과 공개된 할인의 읽기 전용 상세를 렌더링한다", async () => {

@@ -3,7 +3,11 @@ import userEvent from "@testing-library/user-event"
 import { afterEach, expect, test, vi } from "vitest"
 import { MemoryRouter, Route, Routes } from "react-router"
 
-import { clearAccessToken } from "../../features/auth/auth-session"
+import {
+  clearAccessToken,
+  saveAccessToken,
+} from "../../features/auth/auth-session"
+import { FUTURE_ACCESS_TOKEN } from "../../test/auth-token"
 import { renderWithProviders } from "../../test/render"
 import { DealDetailPage } from "./deal-detail-page"
 import { FavoritesPage } from "./favorites-page"
@@ -95,6 +99,7 @@ test("즐겨찾기 서버 목록을 렌더링하고 해제 후 다시 동기화�
 })
 
 test("숫자 가게 상세에서 실제 정보와 찜 상태를 변경한다", async () => {
+  saveAccessToken(FUTURE_ACCESS_TOKEN)
   const user = userEvent.setup()
   let isFavorite = false
 
@@ -153,7 +158,7 @@ test("알림을 서버에서 읽음 처리하고 목록과 미읽음 수를 갱�
 
   vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
     const url = String(input)
-    if (url === "/api/v1/notifications?size=100") {
+    if (url === "/api/v1/notifications?size=20") {
       return jsonResponse({
         notifications: [
           {
@@ -222,6 +227,7 @@ test("인증되지 않은 즐겨찾기 요청에는 로그인 안내를 표시�
 })
 
 test("실제 할인 품목을 선택해 멱등 키와 함께 예약한다", async () => {
+  saveAccessToken(FUTURE_ACCESS_TOKEN)
   const user = userEvent.setup()
   const dealDetail = {
     dealId: 31,
