@@ -82,7 +82,45 @@ test("고객이 지도 중심으로 동네를 선택하고 홈에서 확인한�
   })
 
   await page.goto("/app", { waitUntil: "domcontentloaded" })
-  await page.getByRole("link", { name: "위치 설정" }).click()
+  const locationControl = page.getByRole("link", {
+    name: "동네 위치 설정",
+    exact: true,
+  })
+  const mapControl = page.getByRole("link", {
+    name: "현재 조건으로 지도보기",
+  })
+  const searchControl = page.getByRole("search")
+  const [locationBox, mapBox, searchBox] = await Promise.all([
+    locationControl.boundingBox(),
+    mapControl.boundingBox(),
+    searchControl.boundingBox(),
+  ])
+
+  expect(locationBox).not.toBeNull()
+  expect(mapBox).not.toBeNull()
+  expect(searchBox).not.toBeNull()
+  expect(locationBox?.height).toBeGreaterThanOrEqual(44)
+  expect(mapBox?.height).toBeGreaterThanOrEqual(44)
+  expect(searchBox?.height).toBeGreaterThanOrEqual(44)
+
+  if ((page.viewportSize()?.width ?? 0) < 640) {
+    expect(Math.abs((locationBox?.y ?? 0) - (mapBox?.y ?? 0))).toBeLessThan(2)
+    expect(searchBox?.y ?? 0).toBeGreaterThanOrEqual(
+      (locationBox?.y ?? 0) + (locationBox?.height ?? 0),
+    )
+  } else {
+    expect(Math.abs((locationBox?.y ?? 0) - (mapBox?.y ?? 0))).toBeLessThan(2)
+    expect(Math.abs((locationBox?.y ?? 0) - (searchBox?.y ?? 0))).toBeLessThan(
+      2,
+    )
+  }
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBe(true)
+
+  await locationControl.click()
 
   await expect(page).toHaveURL(/\/location\?returnTo=%2Fapp$/)
   await expect(
@@ -104,7 +142,7 @@ test("고객이 지도 중심으로 동네를 선택하고 홈에서 확인한�
 
   await expect(page).toHaveURL(/\/app$/)
   await expect(
-    page.getByRole("link", { name: "태평로1가 5km 기준 위치 변경" }),
+    page.getByRole("link", { name: "태평로1가 위치 변경" }),
   ).toBeVisible()
   expect(
     await page.evaluate(() =>
@@ -135,7 +173,7 @@ test("고객이 품목 수량을 고르고 예약을 완료한다", async ({ pag
   await expect(
     page.getByRole("heading", {
       level: 1,
-      name: "성수동 근처 예약 가능한 할인",
+      name: "지금 예약 가능한 할인",
     }),
   ).toBeVisible()
   await page.getByRole("link", { name: "현재 조건으로 지도보기" }).click()

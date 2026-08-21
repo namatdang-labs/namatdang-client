@@ -126,7 +126,7 @@ test("선택 위치 5km 안의 가게만 가까운 순으로 20개씩 보여준�
   ).toBeInTheDocument()
   expect(
     screen.getByRole("link", {
-      name: "성수동1가1동 5km 기준 위치 변경",
+      name: "성수동1가1동 위치 변경",
     }),
   ).toBeInTheDocument()
   expect(

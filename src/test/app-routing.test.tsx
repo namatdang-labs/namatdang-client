@@ -375,13 +375,13 @@ test("홈에서 지도 중심으로 동네를 선택하고 선택한 라벨을 �
     expect(
       await screen.findByRole("heading", {
         level: 1,
-        name: "태평로1가 근처 예약 가능한 할인",
+        name: "지금 예약 가능한 할인",
       }),
     ).toBeInTheDocument()
     expect(router.state.location.pathname).toBe("/app")
     expect(
       screen.getByRole("link", {
-        name: "태평로1가 5km 기준 위치 변경",
+        name: "태평로1가 위치 변경",
       }),
     ).toBeInTheDocument()
     expect(getCurrentPosition).not.toHaveBeenCalled()

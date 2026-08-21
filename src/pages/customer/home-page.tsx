@@ -286,26 +286,26 @@ export function HomePage() {
 
   return (
     <CustomerPage>
-      <section className="mb-5" aria-label="할인 탐색">
-        <div className="flex flex-wrap gap-2 sm:grid sm:grid-cols-[auto_minmax(0,1fr)_auto]">
+      <section className="mb-4" aria-label="할인 탐색">
+        <div className="flex flex-wrap items-center gap-2 sm:grid sm:grid-cols-[auto_minmax(0,1fr)_auto]">
           <Button
             asChild
             variant="secondary"
             size="compact"
-            className="min-w-0 flex-1 justify-start sm:max-w-52 sm:flex-none"
+            className="max-w-[calc(100%-5.5rem)] min-w-0 justify-start px-3 sm:max-w-52"
           >
             <Link
               to={locationSelectionPath}
               aria-label={
                 locationPreference
-                  ? `${locationPreference.label} 5km 기준 위치 변경`
+                  ? `${locationPreference.label} 위치 변경`
                   : "동네 위치 설정"
               }
             >
               <MapPin aria-hidden="true" />
               <span className="truncate">
                 {locationPreference
-                  ? `${locationPreference.label} · 5km`
+                  ? `${locationPreference.label} · 변경`
                   : "동네 설정"}
               </span>
             </Link>
@@ -313,7 +313,7 @@ export function HomePage() {
 
           <form
             key={query}
-            className="border-hairline bg-canvas order-3 flex min-h-12 w-full items-center rounded-xl border sm:order-none sm:min-h-11 sm:w-auto"
+            className="border-hairline bg-canvas order-last flex min-h-12 w-full items-center rounded-xl border sm:order-none sm:min-h-11 sm:w-auto"
             role="search"
             onSubmit={handleSearch}
           >
@@ -335,7 +335,12 @@ export function HomePage() {
             </Button>
           </form>
 
-          <Button asChild variant="secondary" size="compact">
+          <Button
+            asChild
+            variant="secondary"
+            size="compact"
+            className="ml-auto sm:ml-0"
+          >
             <Link to={mapPath} aria-label="현재 조건으로 지도보기">
               <MapIcon aria-hidden="true" />
               지도
@@ -353,9 +358,7 @@ export function HomePage() {
               tabIndex={-1}
               className="text-foreground text-2xl font-bold tracking-tight sm:text-3xl"
             >
-              {locationPreference
-                ? `${locationPreference.label} 근처 예약 가능한 할인`
-                : "지금 예약 가능한 할인"}
+              지금 예약 가능한 할인
             </h1>
             <p className="text-muted mt-1 text-sm leading-6">
               {locationPreference

@@ -209,14 +209,14 @@ test("지도에서 선택한 위치를 5km 가게 검색에 적용하고 URL 검
   )
 
   expect(
-    screen.getByRole("link", { name: "성수동 5km 기준 위치 변경" }),
+    screen.getByRole("link", { name: "성수동 위치 변경" }),
   ).toHaveAttribute("href", "/location?returnTo=%2Fapp%3Fq%3D%25EB%25B9%25B5")
   expect(
     screen.getByRole("heading", { name: "성수동 근처 가게 둘러보기" }),
   ).toBeInTheDocument()
   expect(
     screen.getByRole("heading", {
-      name: "성수동 근처 예약 가능한 할인",
+      name: "지금 예약 가능한 할인",
     }),
   ).toBeInTheDocument()
   expect(
