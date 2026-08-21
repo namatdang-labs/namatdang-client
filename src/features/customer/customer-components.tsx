@@ -200,7 +200,7 @@ export function DealCard({ deal }: { deal: SellingDealDto }) {
         <div className="mt-1.5 flex flex-wrap items-baseline gap-x-1.5 sm:mt-2">
           {typeof deal.maxDiscountRate === "number" &&
           deal.maxDiscountRate > 0 ? (
-            <span className="text-primary text-sm font-bold tabular-nums sm:text-base">
+            <span className="text-brand-link text-sm font-bold tabular-nums sm:text-base">
               {deal.maxDiscountRate}%
             </span>
           ) : null}
