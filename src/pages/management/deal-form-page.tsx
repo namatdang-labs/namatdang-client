@@ -1,12 +1,29 @@
 import { zodResolver } from "@hookform/resolvers/zod"
-import { ArrowLeft, Eye, Plus, Save, Tag, Trash2 } from "lucide-react"
-import { useEffect, useState } from "react"
-import { useFieldArray, useForm, useWatch } from "react-hook-form"
-import { Link, useParams } from "react-router"
-import { formatPrice } from "../../features/management/data"
 import {
+  ArrowLeft,
+  Clock3,
+  Eye,
+  Package,
+  Plus,
+  Tag,
+  Trash2,
+} from "lucide-react"
+import { useState } from "react"
+import { useFieldArray, useForm, useWatch } from "react-hook-form"
+import { Link, useNavigate, useParams } from "react-router"
+
+import {
+  formatManagementDateTime,
+  formatPrice,
+} from "../../features/management/data"
+import {
+  getManagementErrorMessage,
+  useCreateOwnerDeal,
+  useOwnerDeal,
+} from "../../features/management/management-api"
+import {
+  DealStatusBadge,
   FormField,
-  FormSuccessMessage,
   ManagementPageHeader,
   ManagementPanel,
   TextareaField,
@@ -19,225 +36,150 @@ import { useManagementStore } from "../../features/management/store-context"
 import { useDocumentTitle } from "../../shared/lib/use-document-title"
 import { Button } from "../../shared/ui/button"
 
-const newDealValues: DealFormValues = {
-  name: "",
-  description: "",
-  items: [{ name: "", originalPrice: 0, salePrice: 0, stock: 1 }],
-  pickupStart: "18:00",
-  pickupEnd: "20:00",
+function toDateTimeLocalValue(date: Date) {
+  const pad = (value: number) => String(value).padStart(2, "0")
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(
+    date.getDate(),
+  )}T${pad(date.getHours())}:${pad(date.getMinutes())}`
 }
 
-const existingDealValues: Record<string, DealFormValues> = {
-  "deal-001": {
-    name: "버터 크루아상 세트",
-    description: "버터 크루아상과 소금빵을 함께 담은 오늘의 세트예요.",
+function createDealDefaults(now: number): DealFormValues {
+  const defaultEnd = new Date(now + 2 * 60 * 60 * 1000)
+  defaultEnd.setMinutes(Math.ceil(defaultEnd.getMinutes() / 10) * 10, 0, 0)
+
+  return {
+    description: "",
     items: [
       {
-        name: "버터 크루아상",
-        originalPrice: 6000,
-        salePrice: 3900,
-        stock: 3,
-      },
-      { name: "소금빵", originalPrice: 3000, salePrice: 1500, stock: 5 },
-    ],
-    pickupStart: "19:00",
-    pickupEnd: "20:00",
-  },
-  "deal-002": {
-    name: "오늘의 빵 꾸러미",
-    description: "휘낭시에와 스콘을 골고루 담은 마감 꾸러미예요.",
-    items: [
-      {
-        name: "구움과자 꾸러미",
-        originalPrice: 15000,
-        salePrice: 7900,
-        stock: 1,
+        name: "",
+        originalPrice: 0,
+        salePrice: 0,
+        totalQuantity: 1,
       },
     ],
-    pickupStart: "18:30",
-    pickupEnd: "19:30",
-  },
-  "deal-003": {
-    name: "마들렌 4종 상자",
-    description: "오늘 구운 마들렌 네 가지 맛을 한 상자에 담았어요.",
-    items: [
-      {
-        name: "마들렌 4종 상자",
-        originalPrice: 10000,
-        salePrice: 5900,
-        stock: 1,
-      },
-    ],
-    pickupStart: "18:00",
-    pickupEnd: "19:00",
-  },
-  "deal-004": {
-    name: "어제 등록한 스콘 세트",
-    description: "마감된 할인 화면을 확인하기 위한 스콘 세트예요.",
-    items: [
-      {
-        name: "플레인 스콘 세트",
-        originalPrice: 11000,
-        salePrice: 6500,
-        stock: 2,
-      },
-    ],
-    pickupStart: "19:00",
-    pickupEnd: "20:00",
-  },
-  "deal-101": {
-    name: "과일 조각 케이크",
-    description: "오늘 만든 제철 과일 조각 케이크를 골라 보세요.",
-    items: [
-      {
-        name: "제철 과일 조각 케이크",
-        originalPrice: 7800,
-        salePrice: 4900,
-        stock: 4,
-      },
-    ],
-    pickupStart: "18:00",
-    pickupEnd: "19:30",
-  },
-  "deal-102": {
-    name: "크림 디저트 상자",
-    description: "마감된 할인 화면을 확인하기 위한 디저트 상자예요.",
-    items: [
-      {
-        name: "크림 디저트 상자",
-        originalPrice: 13000,
-        salePrice: 7500,
-        stock: 1,
-      },
-    ],
-    pickupStart: "18:30",
-    pickupEnd: "19:30",
-  },
+    salesEndsAt: toDateTimeLocalValue(defaultEnd),
+  }
 }
 
 export function DealFormPage() {
-  const { dealId } = useParams()
+  useDocumentTitle("할인 등록")
   const { store } = useManagementStore()
-  const isEditing = Boolean(dealId)
-  const initialValues = dealId ? existingDealValues[dealId] : newDealValues
-  const formKey = dealId ?? "new"
-  const pageTitle = isEditing ? "할인 수정" : "할인 등록"
-  useDocumentTitle(pageTitle)
-  const [savedFormKey, setSavedFormKey] = useState<string | null>(null)
+  const navigate = useNavigate()
+  const createDeal = useCreateOwnerDeal()
+  const [dateDefaults] = useState(() => {
+    const now = Date.now()
+    return {
+      defaultValues: createDealDefaults(now),
+      earliestEnd: toDateTimeLocalValue(new Date(now + 11 * 60 * 1000)),
+      latestEnd: toDateTimeLocalValue(new Date(now + 24 * 60 * 60 * 1000)),
+    }
+  })
+  const { defaultValues, earliestEnd, latestEnd } = dateDefaults
   const {
     register,
     handleSubmit,
     control,
-    reset,
     formState: { errors, isSubmitting },
   } = useForm<DealFormValues>({
     resolver: zodResolver(dealFormSchema),
-    defaultValues: initialValues ?? newDealValues,
+    defaultValues,
   })
   const { fields, append, remove } = useFieldArray({ control, name: "items" })
-
-  useEffect(() => {
-    reset(initialValues ?? newDealValues)
-  }, [initialValues, reset])
-
   const watchedValues = useWatch({ control })
-  const name = watchedValues.name ?? ""
   const items = watchedValues.items ?? []
   const previewItem = items.find((item) => (item?.salePrice ?? 0) > 0)
   const originalPrice = previewItem?.originalPrice ?? 0
   const salePrice = previewItem?.salePrice ?? 0
-  const stock = items.reduce(
+  const totalQuantity = items.reduce(
     (total, item) =>
-      total + (Number.isFinite(item?.stock) ? (item?.stock ?? 0) : 0),
+      total +
+      (Number.isFinite(item?.totalQuantity) ? (item?.totalQuantity ?? 0) : 0),
     0,
   )
-  const pickupStart = watchedValues.pickupStart ?? ""
-  const pickupEnd = watchedValues.pickupEnd ?? ""
   const discountRate =
     originalPrice > 0 && salePrice > 0 && salePrice < originalPrice
       ? Math.round((1 - salePrice / originalPrice) * 100)
       : 0
 
-  if (isEditing && !initialValues) {
-    return (
-      <div className="space-y-6 py-6 lg:space-y-8 lg:py-8">
-        <ManagementPageHeader
-          eyebrow={`${store.name} · 할인 관리`}
-          title="할인을 찾을 수 없어요"
-          description="할인 목록에서 수정할 항목을 다시 선택해 주세요."
-        />
-        <Button asChild variant="secondary">
-          <Link to="/manage/deals">
-            <ArrowLeft aria-hidden="true" />
-            할인 목록으로
-          </Link>
-        </Button>
-      </div>
-    )
-  }
+  const submitting = isSubmitting || createDeal.isPending
 
   return (
     <div className="space-y-6 py-6 lg:space-y-8 lg:py-8">
       <ManagementPageHeader
         eyebrow={`${store.name} · 할인 관리`}
-        title={pageTitle}
-        description="Deal API 연결 전 가격·수량·픽업 입력과 미리보기 상태를 확인하세요."
+        title="할인 등록"
+        description="남은 품목의 가격과 수량, 예약 마감 시각을 입력해 할인을 공개하세요."
       />
 
-      {savedFormKey === formKey ? (
-        <FormSuccessMessage>
-          입력 상태를 화면에서 확인했어요. 서버에는 저장되지 않아요.
-        </FormSuccessMessage>
+      {createDeal.error ? (
+        <p
+          role="alert"
+          className="border-critical/30 bg-critical/5 text-critical rounded-xl border px-4 py-3 text-sm"
+        >
+          {getManagementErrorMessage(
+            createDeal.error,
+            "할인을 등록하지 못했어요. 입력 내용과 마감 시각을 확인한 뒤 다시 시도해 주세요.",
+          )}
+        </p>
       ) : null}
 
       <form
         noValidate
-        onChange={() => setSavedFormKey(null)}
-        onSubmit={handleSubmit(() => setSavedFormKey(formKey))}
+        onSubmit={handleSubmit(async (values) => {
+          try {
+            const deal = await createDeal.mutateAsync({
+              storeId: Number(store.id),
+              request: {
+                salesEndsAt:
+                  values.salesEndsAt.length === 16
+                    ? `${values.salesEndsAt}:00`
+                    : values.salesEndsAt,
+                description: values.description || null,
+                items: values.items,
+              },
+            })
+            await navigate(`/manage/deals/${deal.dealId}`, { replace: true })
+          } catch {
+            // Mutation state renders the server response above the form.
+          }
+        })}
         className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_320px]"
       >
         <div className="space-y-5">
-          <ManagementPanel aria-labelledby="deal-product-title">
+          <ManagementPanel aria-labelledby="deal-guide-title">
             <h2
-              id="deal-product-title"
+              id="deal-guide-title"
               className="text-foreground text-lg font-bold"
             >
-              할인 상품
+              할인 안내
             </h2>
             <p className="text-muted mt-1 text-sm leading-5">
-              고객이 상품을 바로 이해할 수 있게 구체적으로 적어 주세요.
+              구성과 보관 방법처럼 고객이 예약 전에 알아야 할 내용을 적어
+              주세요.
             </p>
-            <div className="mt-6 grid gap-5">
-              <FormField
-                id="deal-name"
-                label="할인 이름"
-                placeholder="예: 버터 크루아상 세트"
-                error={errors.name?.message}
-                required
-                {...register("name")}
-              />
-              <TextareaField
-                id="deal-description"
-                label="상품 설명"
-                placeholder="구성 상품과 보관 방법을 알려 주세요."
-                helper="품목 구성과 알레르기 관련 안내가 있다면 함께 적어 주세요."
-                error={errors.description?.message}
-                {...register("description")}
-              />
-            </div>
+            <TextareaField
+              id="deal-description"
+              label="안내 사항"
+              placeholder="예: 오늘 구운 빵을 종류별로 준비했어요. 당일 섭취를 권장해요."
+              helper="선택 입력이며 500자까지 작성할 수 있어요."
+              error={errors.description?.message}
+              className="mt-6"
+              maxLength={500}
+              {...register("description")}
+            />
           </ManagementPanel>
 
-          <ManagementPanel aria-labelledby="deal-price-title">
+          <ManagementPanel aria-labelledby="deal-items-title">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
                 <h2
-                  id="deal-price-title"
+                  id="deal-items-title"
                   className="text-foreground text-lg font-bold"
                 >
                   판매 품목
                 </h2>
                 <p className="text-muted mt-1 text-sm leading-5">
-                  고객이 각각 수량을 고를 수 있도록 품목별 가격과 재고를 입력해
+                  고객이 품목별로 수량을 고를 수 있도록 가격과 재고를 입력해
                   주세요.
                 </p>
               </div>
@@ -245,12 +187,13 @@ export function DealFormPage() {
                 type="button"
                 variant="secondary"
                 size="compact"
+                disabled={fields.length >= 10}
                 onClick={() =>
                   append({
                     name: "",
                     originalPrice: 0,
                     salePrice: 0,
-                    stock: 1,
+                    totalQuantity: 1,
                   })
                 }
               >
@@ -302,6 +245,7 @@ export function DealFormPage() {
                         placeholder="예: 버터 크루아상"
                         error={errors.items?.[index]?.name?.message}
                         className="sm:col-span-3"
+                        maxLength={50}
                         required
                         {...register(`items.${index}.name`)}
                       />
@@ -311,6 +255,7 @@ export function DealFormPage() {
                         type="number"
                         inputMode="numeric"
                         min="100"
+                        max="1000000"
                         step="100"
                         placeholder="6000"
                         error={errors.items?.[index]?.originalPrice?.message}
@@ -325,6 +270,7 @@ export function DealFormPage() {
                         type="number"
                         inputMode="numeric"
                         min="100"
+                        max="1000000"
                         step="100"
                         placeholder="3900"
                         error={errors.items?.[index]?.salePrice?.message}
@@ -339,16 +285,16 @@ export function DealFormPage() {
                         })}
                       />
                       <FormField
-                        id={`deal-item-${index}-stock`}
+                        id={`deal-item-${index}-quantity`}
                         label="판매 수량"
                         type="number"
                         inputMode="numeric"
                         min="1"
-                        max="999"
-                        error={errors.items?.[index]?.stock?.message}
+                        max="99"
+                        error={errors.items?.[index]?.totalQuantity?.message}
                         helper="예약 가능한 수량"
                         required
-                        {...register(`items.${index}.stock`, {
+                        {...register(`items.${index}.totalQuantity`, {
                           valueAsNumber: true,
                         })}
                       />
@@ -359,34 +305,27 @@ export function DealFormPage() {
             </div>
           </ManagementPanel>
 
-          <ManagementPanel aria-labelledby="deal-pickup-title">
+          <ManagementPanel aria-labelledby="deal-end-title">
             <h2
-              id="deal-pickup-title"
+              id="deal-end-title"
               className="text-foreground text-lg font-bold"
             >
-              픽업 시간
+              예약 마감
             </h2>
             <p className="text-muted mt-1 text-sm leading-5">
-              오늘 고객이 방문할 수 있는 시간을 선택해 주세요.
+              지금부터 10분 이후, 24시간 안의 시각을 선택해 주세요.
             </p>
-            <div className="mt-6 grid gap-5 sm:grid-cols-2">
-              <FormField
-                id="deal-pickup-start"
-                label="픽업 시작"
-                type="time"
-                error={errors.pickupStart?.message}
-                required
-                {...register("pickupStart")}
-              />
-              <FormField
-                id="deal-pickup-end"
-                label="픽업 종료"
-                type="time"
-                error={errors.pickupEnd?.message}
-                required
-                {...register("pickupEnd")}
-              />
-            </div>
+            <FormField
+              id="deal-sales-ends-at"
+              label="예약 마감 시각"
+              type="datetime-local"
+              min={earliestEnd}
+              max={latestEnd}
+              error={errors.salesEndsAt?.message}
+              className="mt-6 max-w-sm"
+              required
+              {...register("salesEndsAt")}
+            />
           </ManagementPanel>
         </div>
 
@@ -406,7 +345,7 @@ export function DealFormPage() {
                 {discountRate > 0 ? `${discountRate}% 할인` : "할인율"}
               </span>
               <h3 className="text-foreground mt-3 text-base font-bold">
-                {name || "할인 이름"}
+                {previewItem?.name || "품목 이름"}
               </h3>
               <p className="mt-3 flex items-baseline gap-2">
                 <strong className="text-foreground text-xl tabular-nums">
@@ -420,15 +359,15 @@ export function DealFormPage() {
               </p>
               <dl className="border-hairline text-muted mt-4 grid gap-2 border-t pt-4 text-sm">
                 <div className="flex justify-between gap-4">
-                  <dt>판매 수량</dt>
+                  <dt>전체 판매 수량</dt>
                   <dd className="text-foreground font-semibold tabular-nums">
-                    {stock || 0}개
+                    {totalQuantity}개
                   </dd>
                 </div>
                 <div className="flex justify-between gap-4">
-                  <dt>픽업</dt>
+                  <dt>등록 품목</dt>
                   <dd className="text-foreground font-semibold tabular-nums">
-                    {pickupStart}–{pickupEnd}
+                    {fields.length}개
                   </dd>
                 </div>
               </dl>
@@ -442,21 +381,184 @@ export function DealFormPage() {
                 목록으로
               </Link>
             </Button>
-            <Button type="submit" className="w-full" disabled={isSubmitting}>
-              {isEditing ? (
-                <Save aria-hidden="true" />
-              ) : (
-                <Tag aria-hidden="true" />
-              )}
-              {isSubmitting
-                ? "확인하는 중"
-                : isEditing
-                  ? "변경 상태 미리보기"
-                  : "입력 상태 미리보기"}
+            <Button type="submit" className="w-full" disabled={submitting}>
+              <Tag aria-hidden="true" />
+              {submitting ? "공개하는 중" : "할인 공개"}
             </Button>
           </div>
         </aside>
       </form>
+    </div>
+  )
+}
+
+export function ManagementDealDetailPage() {
+  useDocumentTitle("할인 상세")
+  const { store } = useManagementStore()
+  const { dealId: dealIdParam } = useParams()
+  const dealId = /^\d+$/.test(dealIdParam ?? "") ? Number(dealIdParam) : null
+  const dealQuery = useOwnerDeal(dealId)
+
+  return (
+    <div className="space-y-6 py-6 lg:space-y-8 lg:py-8">
+      <ManagementPageHeader
+        eyebrow={`${store.name} · 할인 관리`}
+        title="할인 상세"
+        description="공개된 품목과 현재 판매 상태를 확인하세요."
+      />
+
+      {dealId === null ? (
+        <ManagementPanel className="py-10 text-center">
+          <h2 className="text-foreground text-lg font-bold">
+            할인 주소가 올바르지 않아요
+          </h2>
+          <p className="text-muted mt-2 text-sm">
+            할인 목록에서 확인할 항목을 다시 선택해 주세요.
+          </p>
+          <Button asChild variant="secondary" className="mt-5">
+            <Link to="/manage/deals">할인 목록으로</Link>
+          </Button>
+        </ManagementPanel>
+      ) : dealQuery.isPending ? (
+        <ManagementPanel className="min-h-64" aria-busy="true">
+          <p className="text-muted flex min-h-52 items-center justify-center text-sm">
+            할인 정보를 불러오는 중이에요.
+          </p>
+        </ManagementPanel>
+      ) : dealQuery.isError ? (
+        <ManagementPanel className="py-10 text-center">
+          <h2 className="text-foreground text-lg font-bold">
+            할인 정보를 불러오지 못했어요
+          </h2>
+          <p className="text-muted mt-2 text-sm">
+            잠시 후 다시 시도하거나 할인 목록으로 돌아가 주세요.
+          </p>
+          <div className="mt-5 flex flex-wrap justify-center gap-3">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => void dealQuery.refetch()}
+            >
+              다시 시도
+            </Button>
+            <Button asChild variant="secondary">
+              <Link to="/manage/deals">할인 목록으로</Link>
+            </Button>
+          </div>
+        </ManagementPanel>
+      ) : dealQuery.data.storeId !== Number(store.id) ? (
+        <ManagementPanel className="py-10 text-center">
+          <h2 className="text-foreground text-lg font-bold">
+            다른 가게에서 공개한 할인이에요
+          </h2>
+          <p className="text-muted mt-2 text-sm">
+            가게를 전환한 뒤 해당 할인 정보를 확인해 주세요.
+          </p>
+          <Button asChild variant="secondary" className="mt-5">
+            <Link to="/manage/deals">할인 목록으로</Link>
+          </Button>
+        </ManagementPanel>
+      ) : (
+        <>
+          <ManagementPanel>
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <p className="text-muted text-sm">
+                  할인 #{dealQuery.data.dealId}
+                </p>
+                <h2 className="text-foreground mt-1 text-xl font-bold">
+                  {dealQuery.data.description || "등록된 할인"}
+                </h2>
+              </div>
+              <DealStatusBadge status={dealQuery.data.status} />
+            </div>
+            <dl className="border-hairline mt-5 grid gap-4 border-t pt-5 sm:grid-cols-3">
+              <div>
+                <dt className="text-muted text-xs">예약 마감</dt>
+                <dd className="text-foreground mt-1 text-sm font-semibold tabular-nums">
+                  {formatManagementDateTime(dealQuery.data.salesEndsAt)}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-muted text-xs">공개 시각</dt>
+                <dd className="text-foreground mt-1 text-sm font-semibold tabular-nums">
+                  {formatManagementDateTime(dealQuery.data.createdAt)}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-muted text-xs">등록 품목</dt>
+                <dd className="text-foreground mt-1 text-sm font-semibold tabular-nums">
+                  {dealQuery.data.items.length}개
+                </dd>
+              </div>
+            </dl>
+          </ManagementPanel>
+
+          <ManagementPanel aria-labelledby="deal-detail-items-title">
+            <h2
+              id="deal-detail-items-title"
+              className="text-foreground text-lg font-bold"
+            >
+              판매 품목
+            </h2>
+            <div className="divide-hairline mt-4 divide-y">
+              {dealQuery.data.items.map((item) => (
+                <article
+                  key={item.dealItemId}
+                  className="grid gap-4 py-5 first:pt-1 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
+                >
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="text-foreground font-bold">{item.name}</h3>
+                      <span className="bg-surface text-muted inline-flex min-h-7 items-center rounded-full px-2.5 text-xs font-semibold">
+                        {item.status === "SELLING" ? "판매 중" : "품절"}
+                      </span>
+                    </div>
+                    <p className="mt-2 flex items-baseline gap-2">
+                      <strong className="text-foreground text-lg tabular-nums">
+                        {formatPrice(item.salePrice)}
+                      </strong>
+                      <span className="text-muted text-sm tabular-nums line-through">
+                        {formatPrice(item.originalPrice)}
+                      </span>
+                      <span className="text-brand-link text-sm font-semibold tabular-nums">
+                        {item.discountRate}%
+                      </span>
+                    </p>
+                  </div>
+                  <dl className="grid grid-cols-2 gap-5 text-sm">
+                    <div>
+                      <dt className="text-muted flex items-center gap-1.5">
+                        <Package className="size-4" aria-hidden="true" />
+                        남은 수량
+                      </dt>
+                      <dd className="text-foreground mt-1 font-bold tabular-nums">
+                        {item.remainingQuantity}개
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-muted flex items-center gap-1.5">
+                        <Clock3 className="size-4" aria-hidden="true" />
+                        등록 수량
+                      </dt>
+                      <dd className="text-foreground mt-1 font-bold tabular-nums">
+                        {item.totalQuantity}개
+                      </dd>
+                    </div>
+                  </dl>
+                </article>
+              ))}
+            </div>
+          </ManagementPanel>
+
+          <Button asChild variant="secondary">
+            <Link to="/manage/deals">
+              <ArrowLeft aria-hidden="true" />
+              할인 목록으로
+            </Link>
+          </Button>
+        </>
+      )}
     </div>
   )
 }

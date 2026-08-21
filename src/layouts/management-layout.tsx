@@ -85,9 +85,9 @@ export function ManagementLayout() {
       <div className="bg-background min-h-svh lg:grid lg:grid-cols-[240px_minmax(0,1fr)]">
         <aside className="border-hairline bg-canvas hidden border-r p-5 lg:sticky lg:top-0 lg:flex lg:h-svh lg:flex-col lg:overflow-y-auto">
           <Link
-            to="/manage"
+            to="/app"
             className="mb-6 inline-flex min-h-11 items-center gap-3 rounded-lg"
-            aria-label="남았당 가게 관리 홈"
+            aria-label="남았당 홈"
           >
             <img
               src="/brand/namatdang-icon.png"
@@ -121,9 +121,9 @@ export function ManagementLayout() {
           <header className="border-hairline bg-canvas border-b lg:hidden">
             <div className="flex min-h-16 items-center gap-2 px-4 py-2">
               <Link
-                to="/manage"
+                to="/app"
                 className="inline-flex min-h-11 shrink-0 items-center rounded-lg"
-                aria-label="가게 관리 홈"
+                aria-label="남았당 홈"
               >
                 <img
                   src="/brand/namatdang-icon.png"
@@ -147,11 +147,6 @@ export function ManagementLayout() {
             id="main-content"
             className="mx-auto w-full max-w-[1440px] px-4 py-6 lg:px-8 lg:py-8"
           >
-            <div className="border-info/30 bg-info/5 text-muted mb-6 rounded-xl border px-4 py-3 text-sm leading-6">
-              <strong className="text-foreground">현재 API 연동 범위:</strong>{" "}
-              가게 등록·조회·수정은 실서버 데이터이며, 할인·예약 화면의 수치와
-              목록은 백엔드 API가 추가되기 전까지 디자인 예시입니다.
-            </div>
             <Outlet />
           </main>
         </div>

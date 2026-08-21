@@ -4,7 +4,7 @@ import { useForm } from "react-hook-form"
 import { Link, useNavigate } from "react-router"
 import { ManagementPageHeader } from "../../features/management/management-ui"
 import {
-  storeFormSchema,
+  storeRegistrationFormSchema,
   type StoreFormValues,
 } from "../../features/management/schemas"
 import { StoreFormFields } from "../../features/management/store-form-fields"
@@ -20,6 +20,8 @@ const emptyStoreValues: StoreFormValues = {
   address: "",
   addressDetail: "",
   description: "",
+  latitude: null,
+  longitude: null,
 }
 
 export function StoreRegistrationPage() {
@@ -28,10 +30,15 @@ export function StoreRegistrationPage() {
   const createStore = useCreateOwnerStore()
   const {
     register,
+    control,
+    getValues,
+    setValue,
+    trigger,
+    clearErrors,
     handleSubmit,
     formState: { errors, isSubmitting },
   } = useForm<StoreFormValues>({
-    resolver: zodResolver(storeFormSchema),
+    resolver: zodResolver(storeRegistrationFormSchema),
     defaultValues: emptyStoreValues,
   })
 
@@ -65,6 +72,8 @@ export function StoreRegistrationPage() {
               addressDetail: values.addressDetail || null,
               phoneNumber: formatKoreanPhoneNumber(values.phone) || null,
               description: values.description || null,
+              latitude: values.latitude,
+              longitude: values.longitude,
             })
             await navigate("/manage", { replace: true })
           } catch {
@@ -75,6 +84,11 @@ export function StoreRegistrationPage() {
       >
         <StoreFormFields
           register={register}
+          control={control}
+          getValues={getValues}
+          setValue={setValue}
+          trigger={trigger}
+          clearErrors={clearErrors}
           errors={errors}
           idPrefix="registration"
         />

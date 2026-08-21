@@ -40,7 +40,7 @@ const notificationPresentation: Record<
     iconClassName: string
   }
 > = {
-  DEAL_PUBLISHED: {
+  DEAL_CREATED: {
     label: "새 할인",
     icon: BadgePercent,
     iconClassName: "bg-brand-tint text-brand-link",

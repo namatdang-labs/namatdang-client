@@ -1,45 +1,136 @@
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import {
   Check,
   Clock3,
-  Heart,
   MapPin,
   Minus,
   PackageOpen,
   Plus,
+  RefreshCw,
   Store,
   X,
 } from "lucide-react"
 import { Link, useNavigate, useParams } from "react-router"
+
+import {
+  createReservation,
+  customerQueryKeys,
+  dealQueryOptions,
+  parseNumericDealId,
+  storeQueryOptions,
+  type DealItemDto,
+  type ReservationCreateRequest,
+} from "../../features/customer/customer-api"
 import {
   BackButton,
   CustomerPage,
+  EmptyState,
+  formatDateTime,
+  formatWon,
   SectionCard,
 } from "../../features/customer/customer-components"
-import {
-  formatWon,
-  getDeal,
-  getDiscountRate,
-  getStore,
-  type ReservationDraft,
-} from "../../features/customer/customer-data"
+import { ApiError } from "../../shared/api/client"
 import { useDocumentTitle } from "../../shared/lib/use-document-title"
 import { Button } from "../../shared/ui/button"
+import { RepresentativeImage } from "../../shared/ui/representative-image"
+
+type SelectedDealItem = DealItemDto & { quantity: number }
+
+function createIdempotencyKey() {
+  if (typeof globalThis.crypto?.randomUUID === "function") {
+    return globalThis.crypto.randomUUID()
+  }
+  return `reservation-${Date.now()}-${Math.random().toString(36).slice(2)}`
+}
+
+function getReservationErrorMessage(error: unknown) {
+  if (!(error instanceof ApiError)) {
+    return "예약하지 못했어요. 연결 상태를 확인한 뒤 다시 시도해 주세요."
+  }
+
+  const code =
+    typeof error.payload === "object" &&
+    error.payload !== null &&
+    "code" in error.payload
+      ? String(error.payload.code)
+      : ""
+
+  if (error.status === 401) return "로그인이 만료됐어요. 다시 로그인해 주세요."
+  if (code === "OUT_OF_STOCK") {
+    return "선택한 품목의 남은 수량이 바뀌었어요. 수량을 다시 확인해 주세요."
+  }
+  if (code === "DEAL_NOT_RESERVABLE") {
+    return "이 할인은 예약이 마감됐어요. 다른 할인을 선택해 주세요."
+  }
+  if (code === "RESERVATION_ALREADY_EXISTS") {
+    return "이미 예약한 할인이에요. 내 예약에서 내용을 확인해 주세요."
+  }
+  return "예약하지 못했어요. 잠시 후 다시 시도해 주세요."
+}
+
+function DealDetailSkeleton() {
+  return (
+    <div
+      className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]"
+      aria-label="할인 정보를 불러오는 중"
+      aria-busy="true"
+    >
+      <div className="border-hairline bg-canvas overflow-hidden rounded-2xl border">
+        <div className="bg-surface aspect-[4/3] animate-pulse motion-reduce:animate-none" />
+        <div className="grid gap-3 p-6">
+          <span className="bg-surface h-5 w-1/3 animate-pulse rounded motion-reduce:animate-none" />
+          <span className="bg-surface h-8 w-2/3 animate-pulse rounded motion-reduce:animate-none" />
+          <span className="bg-surface h-6 w-1/2 animate-pulse rounded motion-reduce:animate-none" />
+        </div>
+      </div>
+      <div className="border-hairline bg-canvas h-96 animate-pulse rounded-2xl border motion-reduce:animate-none" />
+    </div>
+  )
+}
 
 export function DealDetailPage() {
   const { dealId } = useParams()
+  const numericDealId = parseNumericDealId(dealId)
+  const hasValidDealId = numericDealId !== null
   const navigate = useNavigate()
-  const deal = getDeal(dealId)
-  const store = getStore(deal?.storeId)
-  const [liked, setLiked] = useState(false)
+  const queryClient = useQueryClient()
   const [isReviewOpen, setIsReviewOpen] = useState(false)
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [quantities, setQuantities] = useState<Record<string, number>>({})
-  useDocumentTitle(deal?.title ?? "할인 상세")
+  const [quantities, setQuantities] = useState<Record<number, number>>({})
+  const [reservationError, setReservationError] = useState("")
+  const attemptRef = useRef<{
+    fingerprint: string
+    idempotencyKey: string
+  } | null>(null)
+  const dealQuery = useQuery({
+    ...dealQueryOptions(numericDealId ?? 0),
+    enabled: hasValidDealId,
+  })
+  const storeQuery = useQuery({
+    ...storeQueryOptions(dealQuery.data?.storeId ?? 0),
+    enabled: dealQuery.isSuccess,
+  })
+  const deal = dealQuery.data
+  const title =
+    deal?.description?.trim() ||
+    (deal ? `${deal.storeName ?? "가게"}의 오늘 할인` : "할인 상세")
 
-  const selectedItems = (deal?.items ?? [])
-    .map((item) => ({ ...item, quantity: quantities[item.id] ?? 0 }))
-    .filter((item) => item.quantity > 0)
+  useDocumentTitle(title)
+
+  const selectedItems = useMemo<SelectedDealItem[]>(
+    () =>
+      (deal?.items ?? [])
+        .map((item) => ({
+          ...item,
+          quantity: Math.min(
+            quantities[item.dealItemId] ?? 0,
+            item.remainingQuantity,
+            10,
+          ),
+        }))
+        .filter((item) => item.quantity > 0),
+    [deal?.items, quantities],
+  )
   const totalQuantity = selectedItems.reduce(
     (total, item) => total + item.quantity,
     0,
@@ -48,45 +139,152 @@ export function DealDetailPage() {
     (total, item) => total + item.salePrice * item.quantity,
     0,
   )
+  const totalRemaining = (deal?.items ?? []).reduce(
+    (total, item) => total + item.remainingQuantity,
+    0,
+  )
+  const lowestPrice =
+    deal && deal.items.length > 0
+      ? Math.min(...deal.items.map((item) => item.salePrice))
+      : 0
+  const isReservable = deal?.status === "SELLING" && totalRemaining > 0
 
-  if (!deal || !store) {
+  const reservationMutation = useMutation({
+    mutationFn: ({
+      request,
+      idempotencyKey,
+    }: {
+      request: ReservationCreateRequest
+      idempotencyKey: string
+    }) => createReservation(request, idempotencyKey),
+    onMutate: () => setReservationError(""),
+    onSuccess: async (reservation) => {
+      queryClient.setQueryData(
+        customerQueryKeys.reservation(reservation.reservationId),
+        reservation,
+      )
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: customerQueryKeys.deal(reservation.dealId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ["customer", "deals", "selling"],
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ["customer", "reservations"],
+        }),
+      ])
+      navigate(
+        `/reservations/complete?reservationId=${reservation.reservationId}`,
+        { state: { reservation } },
+      )
+    },
+    onError: (error) => {
+      setReservationError(getReservationErrorMessage(error))
+      if (error instanceof ApiError) {
+        const code =
+          typeof error.payload === "object" &&
+          error.payload !== null &&
+          "code" in error.payload
+            ? String(error.payload.code)
+            : ""
+        if (code === "OUT_OF_STOCK" || code === "DEAL_NOT_RESERVABLE") {
+          void dealQuery.refetch()
+        }
+      }
+    },
+  })
+
+  if (!hasValidDealId) {
     return (
       <CustomerPage>
         <BackButton />
-        <h1 data-route-heading tabIndex={-1} className="text-2xl font-bold">
-          할인을 찾을 수 없어요
-        </h1>
-        <p className="text-muted mt-3">
-          판매가 마감됐거나 정보가 바뀌었을 수 있어요.
-        </p>
+        <EmptyState
+          title="할인을 찾을 수 없어요"
+          description="주소를 다시 확인하거나 다른 할인을 살펴보세요."
+          action={
+            <Button asChild variant="secondary">
+              <Link to="/app">오늘의 할인 보기</Link>
+            </Button>
+          }
+        />
       </CustomerPage>
     )
   }
 
-  const changeQuantity = (itemId: string, next: number, max: number) => {
+  if (dealQuery.isPending) {
+    return (
+      <CustomerPage className="max-w-6xl">
+        <BackButton />
+        <DealDetailSkeleton />
+      </CustomerPage>
+    )
+  }
+
+  if (dealQuery.isError || !deal) {
+    const notFound =
+      dealQuery.error instanceof ApiError && dealQuery.error.status === 404
+    return (
+      <CustomerPage>
+        <BackButton />
+        <EmptyState
+          title={
+            notFound ? "할인을 찾을 수 없어요" : "할인 정보를 불러오지 못했어요"
+          }
+          description={
+            notFound
+              ? "판매가 끝났거나 주소가 올바르지 않을 수 있어요."
+              : "연결 상태를 확인한 뒤 다시 불러와 주세요."
+          }
+          action={
+            notFound ? (
+              <Button asChild variant="secondary">
+                <Link to="/app">오늘의 할인 보기</Link>
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => void dealQuery.refetch()}
+              >
+                <RefreshCw aria-hidden="true" />
+                다시 불러오기
+              </Button>
+            )
+          }
+        />
+      </CustomerPage>
+    )
+  }
+
+  const changeQuantity = (itemId: number, next: number, max: number) => {
+    setReservationError("")
+    attemptRef.current = null
     setQuantities((current) => ({
       ...current,
-      [itemId]: Math.min(Math.max(next, 0), max),
+      [itemId]: Math.min(Math.max(next, 0), max, 10),
     }))
   }
 
-  const submitReservation = async () => {
-    setIsSubmitting(true)
-    await new Promise((resolve) => window.setTimeout(resolve, 600))
-
-    const draft: ReservationDraft = {
-      reservationNumber: "NMD-0818-1842",
-      dealId: deal.id,
-      storeId: store.id,
-      storeName: store.name,
-      pickupDate: "8월 18일 오늘",
-      pickupTime: `${deal.pickupStart} ~ ${deal.pickupEnd}`,
-      items: selectedItems,
-      totalPrice,
-      totalQuantity,
+  const submitReservation = () => {
+    const request: ReservationCreateRequest = {
+      dealId: deal.dealId,
+      items: selectedItems.map((item) => ({
+        dealItemId: item.dealItemId,
+        quantity: item.quantity,
+      })),
     }
-
-    navigate("/reservations/complete", { state: { reservation: draft } })
+    const fingerprint = JSON.stringify(request)
+    if (attemptRef.current?.fingerprint !== fingerprint) {
+      attemptRef.current = {
+        fingerprint,
+        idempotencyKey: createIdempotencyKey(),
+      }
+    }
+    reservationMutation.mutate({
+      request,
+      idempotencyKey: attemptRef.current.idempotencyKey,
+    })
   }
 
   return (
@@ -96,60 +294,34 @@ export function DealDetailPage() {
         <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
           <div className="grid gap-5">
             <div className="border-hairline bg-canvas overflow-hidden rounded-2xl border">
-              <div className="bg-surface relative aspect-[4/3] max-h-[560px]">
-                <img
-                  src={deal.imageUrl}
-                  alt={`${deal.title} 상품`}
-                  className="h-full w-full object-cover"
-                  fetchPriority="high"
-                />
-                <button
-                  type="button"
-                  className="bg-canvas/95 absolute top-4 right-4 inline-flex size-11 items-center justify-center rounded-full"
-                  aria-label={
-                    liked ? `${store.name} 찜 해제` : `${store.name} 찜하기`
-                  }
-                  aria-pressed={liked}
-                  onClick={() => setLiked((value) => !value)}
-                >
-                  <Heart
-                    aria-hidden="true"
-                    className={liked ? "fill-primary text-primary" : undefined}
-                  />
-                </button>
-              </div>
+              <RepresentativeImage
+                kind="deal"
+                className="aspect-[4/3] max-h-[560px] w-full"
+              />
 
               <div className="p-5 sm:p-7">
                 <Link
-                  to={`/stores/${store.id}`}
+                  to={`/stores/${deal.storeId}`}
                   className="text-muted inline-flex min-h-11 items-center gap-2 rounded-lg text-sm font-semibold"
                 >
                   <Store aria-hidden="true" size={18} />
-                  {store.name} · {store.district}
+                  {deal.storeName ?? "가게 정보"}
                 </Link>
                 <h1
                   data-route-heading
                   tabIndex={-1}
                   className="text-foreground mt-1 text-2xl font-bold sm:text-3xl"
                 >
-                  {deal.title}
+                  {title}
                 </h1>
-                <div className="mt-4 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                  <span className="text-brand-link text-lg font-bold">
-                    {getDiscountRate(deal.originalPrice, deal.salePrice)}%
-                  </span>
-                  <strong className="text-foreground text-2xl tabular-nums">
-                    {formatWon(deal.salePrice)}
-                  </strong>
-                  <span className="text-muted text-sm tabular-nums line-through">
-                    {formatWon(deal.originalPrice)}
-                  </span>
-                </div>
+                <p className="text-foreground mt-4 text-2xl font-bold tabular-nums">
+                  {formatWon(lowestPrice)}부터
+                </p>
               </div>
             </div>
 
             <SectionCard>
-              <h2 className="text-foreground text-lg font-bold">픽업 안내</h2>
+              <h2 className="text-foreground text-lg font-bold">예약 안내</h2>
               <dl className="mt-4 grid gap-4 text-sm">
                 <div className="flex gap-3">
                   <Clock3
@@ -158,9 +330,9 @@ export function DealDetailPage() {
                     size={20}
                   />
                   <div>
-                    <dt className="text-muted">픽업 시간</dt>
+                    <dt className="text-muted">예약 마감</dt>
                     <dd className="text-foreground mt-1 font-semibold">
-                      오늘 {deal.pickupStart} ~ {deal.pickupEnd}
+                      {formatDateTime(deal.salesEndsAt)}
                     </dd>
                   </div>
                 </div>
@@ -173,10 +345,10 @@ export function DealDetailPage() {
                   <div>
                     <dt className="text-muted">픽업 장소</dt>
                     <dd className="text-foreground mt-1 font-semibold">
-                      {store.address}
+                      {storeQuery.data?.address ?? deal.storeName ?? "가게"}
                     </dd>
                     <dd className="text-muted mt-1 leading-6">
-                      {store.pickupGuide}
+                      방문 전에 가게 위치와 운영 시간을 확인해 주세요.
                     </dd>
                   </div>
                 </div>
@@ -189,33 +361,48 @@ export function DealDetailPage() {
               <div>
                 <h2 className="text-foreground text-lg font-bold">품목 선택</h2>
                 <p className="text-muted mt-1 text-sm">
-                  원하는 수량을 골라 주세요.
+                  품목별로 최대 10개까지 선택할 수 있어요.
                 </p>
               </div>
               <span className="text-warning flex shrink-0 items-center gap-1 text-sm font-semibold">
-                <PackageOpen aria-hidden="true" size={18} />총 {deal.stock}개
+                <PackageOpen aria-hidden="true" size={18} />총 {totalRemaining}
+                개
               </span>
             </div>
 
             <div className="divide-hairline divide-y">
               {deal.items.map((item) => {
-                const quantity = quantities[item.id] ?? 0
+                const maxQuantity = Math.min(item.remainingQuantity, 10)
+                const quantity = Math.min(
+                  quantities[item.dealItemId] ?? 0,
+                  maxQuantity,
+                )
+                const itemAvailable =
+                  isReservable && item.status === "SELLING" && maxQuantity > 0
                 return (
-                  <div key={item.id} className="py-5 first:pt-0">
+                  <div key={item.dealItemId} className="py-5 first:pt-0">
                     <h3 className="text-foreground font-semibold">
                       {item.name}
                     </h3>
-                    <p className="text-muted mt-1 text-xs leading-5">
-                      {item.description}
-                    </p>
-                    <p className="text-foreground mt-2 font-bold tabular-nums">
-                      {formatWon(item.salePrice)}
-                      <span className="text-muted ml-2 text-xs font-normal line-through">
+                    <div className="mt-2 flex flex-wrap items-baseline gap-2">
+                      <span className="text-brand-link text-sm font-semibold">
+                        {item.discountRate}%
+                      </span>
+                      <strong className="text-foreground tabular-nums">
+                        {formatWon(item.salePrice)}
+                      </strong>
+                      <span className="text-muted text-xs tabular-nums line-through">
                         {formatWon(item.originalPrice)}
                       </span>
-                    </p>
-                    <p className="text-warning mt-1 text-xs font-semibold">
-                      {item.stock}개 남았어요
+                    </div>
+                    <p
+                      className={`mt-1 text-xs font-semibold ${
+                        itemAvailable ? "text-warning" : "text-muted"
+                      }`}
+                    >
+                      {itemAvailable
+                        ? `${item.remainingQuantity}개 남았어요`
+                        : "품절된 품목이에요"}
                     </p>
                     <div
                       className="mt-3 flex items-center justify-end gap-1"
@@ -226,9 +413,15 @@ export function DealDetailPage() {
                         type="button"
                         className="border-hairline bg-canvas inline-flex size-11 items-center justify-center rounded-xl border disabled:opacity-40"
                         aria-label={`${item.name} 수량 줄이기`}
-                        disabled={quantity === 0}
+                        disabled={
+                          quantity === 0 || reservationMutation.isPending
+                        }
                         onClick={() =>
-                          changeQuantity(item.id, quantity - 1, item.stock)
+                          changeQuantity(
+                            item.dealItemId,
+                            quantity - 1,
+                            maxQuantity,
+                          )
                         }
                       >
                         <Minus aria-hidden="true" size={18} />
@@ -243,9 +436,17 @@ export function DealDetailPage() {
                         type="button"
                         className="border-hairline bg-canvas inline-flex size-11 items-center justify-center rounded-xl border disabled:opacity-40"
                         aria-label={`${item.name} 수량 늘리기`}
-                        disabled={quantity === item.stock}
+                        disabled={
+                          !itemAvailable ||
+                          quantity >= maxQuantity ||
+                          reservationMutation.isPending
+                        }
                         onClick={() =>
-                          changeQuantity(item.id, quantity + 1, item.stock)
+                          changeQuantity(
+                            item.dealItemId,
+                            quantity + 1,
+                            maxQuantity,
+                          )
                         }
                       >
                         <Plus aria-hidden="true" size={18} />
@@ -255,6 +456,12 @@ export function DealDetailPage() {
                 )
               })}
             </div>
+
+            {!isReservable ? (
+              <p className="bg-surface text-muted mt-4 rounded-xl p-4 text-sm leading-6">
+                이 할인은 예약이 마감됐어요.
+              </p>
+            ) : null}
 
             <div className="border-hairline mt-1 border-t pt-5">
               <div className="mb-4 flex items-end justify-between gap-4">
@@ -266,8 +473,11 @@ export function DealDetailPage() {
               <Button
                 type="button"
                 className="hidden w-full lg:inline-flex"
-                disabled={totalQuantity === 0}
-                onClick={() => setIsReviewOpen(true)}
+                disabled={totalQuantity === 0 || !isReservable}
+                onClick={() => {
+                  setReservationError("")
+                  setIsReviewOpen(true)
+                }}
               >
                 선택 확인하기
               </Button>
@@ -287,8 +497,11 @@ export function DealDetailPage() {
           <Button
             type="button"
             className="flex-1"
-            disabled={totalQuantity === 0}
-            onClick={() => setIsReviewOpen(true)}
+            disabled={totalQuantity === 0 || !isReservable}
+            onClick={() => {
+              setReservationError("")
+              setIsReviewOpen(true)
+            }}
           >
             선택 확인하기
           </Button>
@@ -297,11 +510,12 @@ export function DealDetailPage() {
 
       {isReviewOpen ? (
         <ReservationReviewDialog
-          storeName={store.name}
-          pickupTime={`오늘 ${deal.pickupStart} ~ ${deal.pickupEnd}`}
+          storeName={deal.storeName ?? "가게"}
+          reservationDeadline={formatDateTime(deal.salesEndsAt)}
           items={selectedItems}
           totalPrice={totalPrice}
-          isSubmitting={isSubmitting}
+          errorMessage={reservationError}
+          isSubmitting={reservationMutation.isPending}
           onClose={() => setIsReviewOpen(false)}
           onSubmit={submitReservation}
         />
@@ -312,22 +526,19 @@ export function DealDetailPage() {
 
 function ReservationReviewDialog({
   storeName,
-  pickupTime,
+  reservationDeadline,
   items,
   totalPrice,
+  errorMessage,
   isSubmitting,
   onClose,
   onSubmit,
 }: {
   storeName: string
-  pickupTime: string
-  items: Array<{
-    id: string
-    name: string
-    quantity: number
-    salePrice: number
-  }>
+  reservationDeadline: string
+  items: SelectedDealItem[]
   totalPrice: number
+  errorMessage: string
   isSubmitting: boolean
   onClose: () => void
   onSubmit: () => void
@@ -418,14 +629,19 @@ function ReservationReviewDialog({
             <dd className="text-foreground font-semibold">{storeName}</dd>
           </div>
           <div className="grid grid-cols-[88px_1fr] gap-3 py-4">
-            <dt className="text-muted">픽업</dt>
-            <dd className="text-foreground font-semibold">{pickupTime}</dd>
+            <dt className="text-muted">예약 마감</dt>
+            <dd className="text-foreground font-semibold">
+              {reservationDeadline}
+            </dd>
           </div>
           <div className="grid grid-cols-[88px_1fr] gap-3 py-4">
             <dt className="text-muted">품목</dt>
             <dd className="grid gap-2">
               {items.map((item) => (
-                <span key={item.id} className="flex justify-between gap-3">
+                <span
+                  key={item.dealItemId}
+                  className="flex justify-between gap-3"
+                >
                   <span>
                     {item.name} {item.quantity}개
                   </span>
@@ -447,8 +663,14 @@ function ReservationReviewDialog({
 
         <p className="bg-brand-tint text-brand-brown mt-5 flex gap-2 rounded-xl p-4 text-sm leading-6">
           <Check aria-hidden="true" className="mt-0.5 shrink-0" size={19} />
-          예약 후 안내된 시간에 가게에서 상품을 픽업해 주세요.
+          예약이 완료되면 가게에서 상품을 픽업해 주세요.
         </p>
+
+        {errorMessage ? (
+          <p className="text-critical mt-4 text-sm leading-6" role="alert">
+            {errorMessage}
+          </p>
+        ) : null}
 
         <div className="mt-6 grid grid-cols-[auto_1fr] gap-3">
           <Button
@@ -460,7 +682,7 @@ function ReservationReviewDialog({
             다시 고르기
           </Button>
           <Button type="button" disabled={isSubmitting} onClick={onSubmit}>
-            {isSubmitting ? "재고를 확인하는 중" : "예약하기"}
+            {isSubmitting ? "예약하는 중" : "예약하기"}
           </Button>
         </div>
       </section>

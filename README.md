@@ -26,6 +26,23 @@ pnpm dev
 
 기본 API 주소는 `VITE_API_BASE_URL`로 설정한다.
 
+## 네이버 지도 설정
+
+고객 지도 페이지와 가게 상세에서 Web Dynamic Map을 보여 주고, 가게 등록·수정 시 Geocoding으로 주소를 위도·경도로 변환한다. 네이버 클라우드 Maps Application에서 `Web Dynamic Map`과 `Geocoding`을 활성화한다.
+
+Web 서비스 URL은 포트와 경로를 빼고 호스트만 등록한다.
+
+- 로컬: `http://localhost`, `http://127.0.0.1`
+- S3 테스트: `http://namatdang-teat-bucket.s3-website.ap-northeast-2.amazonaws.com`
+
+발급받은 Client ID는 로컬 `.env.local`에 다음과 같이 설정한다. Client Secret은 브라우저 코드에 사용하지 않는다.
+
+```bash
+VITE_NAVER_MAP_NCP_KEY_ID=발급받은_CLIENT_ID
+```
+
+S3 배포 빌드에서는 같은 값을 GitHub Actions Repository Variable `VITE_NAVER_MAP_NCP_KEY_ID`로 추가한다.
+
 ## 주요 명령어
 
 ```bash
@@ -42,17 +59,17 @@ pnpm check         # typecheck → lint → test → build
 ## 구현된 핵심 화면
 
 - 인증: 로그인, 회원가입
-- 고객: 홈, 가게 상세, 할인 상세·예약 확인, 예약 완료, 예약 목록, 예약 상세, 마이
-- 가게 관리: 시작 안내, 가게 등록, 운영 현황, 할인 목록, 할인 등록·수정, 예약 관리, 가게 정보
+- 고객: 홈, 지도, 가게 상세, 할인 상세·예약, 예약 완료, 예약 목록·상세, 찜, 알림, 마이
+- 가게 관리: 시작 안내, 가게 등록, 운영 현황, 할인 목록·등록·상세, 예약 관리, 가게 정보
 
-할인 등록·수정은 하나의 공용 화면을 사용한다. 고객은 모바일 우선, 가게 관리는 1024px 이상에서 사이드바와 예약 목록·상세 분할 화면을 제공한다. 현재 화면 데이터와 제출 동작은 목 상태이며 API·인증 연동은 다음 단계에서 교체한다.
+고객은 모바일 우선, 가게 관리는 1024px 이상에서 사이드바와 예약 목록·상세 분할 화면을 제공한다. 인증·회원·가게·할인·예약·즐겨찾기·알림은 백엔드 API와 연동한다. 가게 관리에서는 할인 등록과 상세 조회를 제공하며, 예약 수령 완료 상태를 서버에 반영한다.
 
 ## 디렉터리
 
 ```text
 src/
   app/          라우터와 앱 전역 provider
-  features/     고객·인증·가게 관리 기능별 UI와 목 상태
+  features/     고객·인증·가게 관리 기능별 API, 상태와 UI
   layouts/      인증·고객·가게 관리 공통 셸
   pages/        라우트 단위 화면
   shared/       API, Query, 도메인 타입, 공통 UI와 유틸리티

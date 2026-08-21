@@ -21,11 +21,15 @@ export type LoginResponseDto = {
   user: LoginUserResponseDto
 }
 
-export type SignupRequestDto = {
+export type SignupInput = {
   email: string
   password: string
   name: string
   phoneNumber: string
+}
+
+export type SignupRequestDto = SignupInput & {
+  role: "CONSUMER"
 }
 
 export type SignupResponseDto = {
@@ -42,7 +46,8 @@ export function login(request: LoginRequestDto) {
   })
 }
 
-export function signup(request: SignupRequestDto) {
+export function signup(input: SignupInput) {
+  const request: SignupRequestDto = { ...input, role: "CONSUMER" }
   return apiClient.post<SignupResponseDto>("/auth/signup", request, {
     auth: false,
   })

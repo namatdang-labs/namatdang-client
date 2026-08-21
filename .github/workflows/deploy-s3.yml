@@ -30,13 +30,21 @@ jobs:
         shell: bash
         env:
           VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
+          VITE_NAVER_MAP_NCP_KEY_ID: ${{ vars.VITE_NAVER_MAP_NCP_KEY_ID }}
         run: |
           set -euo pipefail
 
-          if [[ -z "${VITE_API_BASE_URL:-}" ]]; then
-            echo "::error::GitHub Actions 변수 VITE_API_BASE_URL이 설정되지 않았습니다."
-            exit 1
-          fi
+          required_variables=(
+            VITE_API_BASE_URL
+            VITE_NAVER_MAP_NCP_KEY_ID
+          )
+
+          for variable_name in "${required_variables[@]}"; do
+            if [[ -z "${!variable_name:-}" ]]; then
+              echo "::error::GitHub Actions 변수 ${variable_name}이(가) 설정되지 않았습니다."
+              exit 1
+            fi
+          done
 
           case "${VITE_API_BASE_URL}" in
             http://* | https://*) ;;
@@ -77,6 +85,7 @@ jobs:
       - name: 프로덕션 빌드
         env:
           VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
+          VITE_NAVER_MAP_NCP_KEY_ID: ${{ vars.VITE_NAVER_MAP_NCP_KEY_ID }}
         run: pnpm build
 
       - name: 빌드 결과 보관

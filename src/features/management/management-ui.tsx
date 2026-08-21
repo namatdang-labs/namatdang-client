@@ -4,7 +4,7 @@ import { AlertCircle, ArrowRight, PackageOpen } from "lucide-react"
 import { Link } from "react-router"
 import { cn } from "../../shared/lib/utils"
 import { Button } from "../../shared/ui/button"
-import type { ManagementDealStatus, ManagementReservationStatus } from "./data"
+import type { OwnerDealStatus, OwnerReservationStatus } from "./management-api"
 
 type PageHeaderProps = {
   eyebrow?: string
@@ -96,33 +96,31 @@ export function StatCard({
 }
 
 const dealStatusMap: Record<
-  ManagementDealStatus,
+  OwnerDealStatus,
   { label: string; className: string }
 > = {
-  selling: { label: "판매 중", className: "bg-surface text-foreground" },
-  "low-stock": {
-    label: "재고 적음",
-    className: "bg-brand-tint text-warning",
-  },
-  "sold-out": { label: "품절", className: "bg-surface text-muted" },
-  ended: { label: "마감", className: "bg-surface text-muted" },
+  SELLING: { label: "판매 중", className: "bg-brand-tint text-foreground" },
+  ENDED: { label: "품절", className: "bg-surface text-muted" },
+  CLOSED: { label: "마감", className: "bg-surface text-muted" },
+  CANCELED: { label: "취소", className: "bg-surface text-critical" },
 }
 
 const reservationStatusMap: Record<
-  ManagementReservationStatus,
+  OwnerReservationStatus,
   { label: string; className: string }
 > = {
-  pending: { label: "확인 대기", className: "bg-brand-tint text-info" },
-  confirmed: {
+  RESERVED: {
     label: "픽업 대기",
     className: "bg-brand-tint text-warning",
   },
-  "picked-up": { label: "픽업 완료", className: "bg-brand-tint text-success" },
-  canceled: { label: "예약 취소", className: "bg-surface text-critical" },
-  "no-show": { label: "미방문", className: "bg-surface text-critical" },
+  PICKED_UP: {
+    label: "픽업 완료",
+    className: "bg-brand-tint text-success",
+  },
+  CANCELED: { label: "예약 취소", className: "bg-surface text-critical" },
 }
 
-export function DealStatusBadge({ status }: { status: ManagementDealStatus }) {
+export function DealStatusBadge({ status }: { status: OwnerDealStatus }) {
   const statusInfo = dealStatusMap[status]
 
   return (
@@ -140,7 +138,7 @@ export function DealStatusBadge({ status }: { status: ManagementDealStatus }) {
 export function ReservationStatusBadge({
   status,
 }: {
-  status: ManagementReservationStatus
+  status: OwnerReservationStatus
 }) {
   const statusInfo = reservationStatusMap[status]
 

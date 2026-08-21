@@ -16,6 +16,7 @@ import { getSafeInternalPath } from "../shared/lib/safe-internal-path"
 
 const authenticatedRoutePrefixes = [
   "/app",
+  "/location",
   "/favorites",
   "/notifications",
   "/stores",

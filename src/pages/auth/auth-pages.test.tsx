@@ -142,7 +142,16 @@ test("로그인 실패 시 서버가 제공한 한국어 안내를 보여준다"
   )
 })
 
-test("회원가입은 role 없이 전송하고 요청했던 로그인 이동 경로를 유지한다", async () => {
+test("로그인 화면에는 아직 제공하지 않는 비밀번호 재설정 행동을 노출하지 않는다", () => {
+  renderAuthRoute("/login")
+
+  expect(
+    screen.queryByRole("button", { name: "비밀번호 찾기" }),
+  ).not.toBeInTheDocument()
+  expect(screen.queryByText(/API 연결 후 제공/)).not.toBeInTheDocument()
+})
+
+test("회원가입은 일반 회원 역할로 요청하고 로그인 이동 경로를 유지한다", async () => {
   const user = userEvent.setup()
   const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
     new Response(
@@ -200,5 +209,6 @@ test("회원가입은 role 없이 전송하고 요청했던 로그인 이동 경
     email: "new@example.com",
     phoneNumber: "010-1234-5678",
     password: "password123",
+    role: "CONSUMER",
   })
 })

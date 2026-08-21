@@ -28,6 +28,17 @@ const loadHomePage = async () => {
   return { Component: HomePage }
 }
 
+const loadStoreMapPage = async () => {
+  const { StoreMapPage } = await import("../pages/customer/store-map-page")
+  return { Component: StoreMapPage }
+}
+
+const loadLocationSelectionPage = async () => {
+  const { LocationSelectionPage } =
+    await import("../pages/customer/location-selection-page")
+  return { Component: LocationSelectionPage }
+}
+
 const loadFavoritesPage = async () => {
   const { FavoritesPage } = await import("../pages/customer/favorites-page")
   return { Component: FavoritesPage }
@@ -102,6 +113,12 @@ const loadDealFormPage = async () => {
   return { Component: DealFormPage }
 }
 
+const loadManagementDealDetailPage = async () => {
+  const { ManagementDealDetailPage } =
+    await import("../pages/management/deal-form-page")
+  return { Component: ManagementDealDetailPage }
+}
+
 const loadManagementReservationsPage = async () => {
   const { ManagementReservationsPage } =
     await import("../pages/management/management-reservations-page")
@@ -151,6 +168,16 @@ export const router = createBrowserRouter([
         ],
       },
       {
+        path: "map",
+        loader: requireAuthentication,
+        lazy: loadStoreMapPage,
+      },
+      {
+        path: "location",
+        loader: requireAuthentication,
+        lazy: loadLocationSelectionPage,
+      },
+      {
         Component: ManagementSetupLayout,
         loader: requireAuthentication,
         children: [
@@ -169,7 +196,7 @@ export const router = createBrowserRouter([
           { index: true, lazy: loadManagementHomePage },
           { path: "deals", lazy: loadManagementDealsPage },
           { path: "deals/new", lazy: loadDealFormPage },
-          { path: "deals/:dealId/edit", lazy: loadDealFormPage },
+          { path: "deals/:dealId", lazy: loadManagementDealDetailPage },
           { path: "reservations", lazy: loadManagementReservationsPage },
           { path: "store", lazy: loadStoreSettingsPage },
         ],

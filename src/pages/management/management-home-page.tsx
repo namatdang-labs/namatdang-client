@@ -1,12 +1,23 @@
-import { CalendarClock, Package, Plus, Tags, TimerReset } from "lucide-react"
+import {
+  CalendarClock,
+  CircleDollarSign,
+  Package,
+  Plus,
+  Tags,
+} from "lucide-react"
 import { Link } from "react-router"
+
 import {
   formatPrice,
-  managementDeals,
-  managementReservations,
+  formatShortManagementDateTime,
 } from "../../features/management/data"
 import {
+  useOwnerDeals,
+  useOwnerReservations,
+} from "../../features/management/management-api"
+import {
   DealStatusBadge,
+  EmptyState,
   ManagementPageHeader,
   ManagementPanel,
   ReservationStatusBadge,
@@ -24,40 +35,43 @@ const managementDateLabel = new Intl.DateTimeFormat("ko-KR", {
   timeZone: "Asia/Seoul",
 }).format(new Date())
 
+function statValue(isPending: boolean, isError: boolean, value: string) {
+  if (isPending) return "—"
+  return isError ? "확인 필요" : value
+}
+
 export function ManagementHomePage() {
   useDocumentTitle("오늘 운영 현황")
   const { store } = useManagementStore()
-
-  const storeReservations = managementReservations.filter(
-    (reservation) => reservation.storeId === store.id,
+  const storeId = Number(store.id)
+  const dealsQuery = useOwnerDeals(storeId)
+  const reservationsQuery = useOwnerReservations(storeId)
+  const sellingDeals = (dealsQuery.data ?? []).filter(
+    ({ status }) => status === "SELLING",
   )
-  const storeDeals = managementDeals.filter((deal) => deal.storeId === store.id)
-  const upcomingReservations = storeReservations
-    .filter(
-      (reservation) =>
-        reservation.status === "pending" || reservation.status === "confirmed",
-    )
-    .slice(0, 3)
-  const activeDeals = storeDeals.filter(
-    (deal) => deal.status === "selling" || deal.status === "low-stock",
+  const reservedReservations = (reservationsQuery.data ?? []).filter(
+    ({ status }) => status === "RESERVED",
   )
-  const remainingStock = activeDeals.reduce(
-    (total, deal) => total + deal.stock,
+  const totalItemCount = sellingDeals.reduce(
+    (total, deal) => total + deal.itemCount,
     0,
   )
-  const nextReservation = upcomingReservations[0]
+  const pendingAmount = reservedReservations.reduce(
+    (total, reservation) => total + reservation.totalAmount,
+    0,
+  )
 
   return (
     <div className="space-y-6 py-6 lg:space-y-8 lg:py-8">
       <ManagementPageHeader
         eyebrow={`${managementDateLabel} · ${store.name}`}
         title="오늘 운영 현황"
-        description="픽업할 예약과 남은 상품을 확인하고 다음 운영을 준비하세요."
+        description="판매 중인 할인과 픽업을 기다리는 예약을 확인하세요."
         action={
           <Button asChild className="w-full sm:w-auto">
             <Link to="/manage/deals/new">
               <Plus aria-hidden="true" />
-              할인 폼 미리보기
+              할인 등록
             </Link>
           </Button>
         }
@@ -69,108 +83,180 @@ export function ManagementHomePage() {
       >
         <StatCard
           label="픽업 대기"
-          value={`${upcomingReservations.length}건`}
-          helper={
-            nextReservation
-              ? `다음 픽업 ${nextReservation.pickupTime}`
-              : "예정된 픽업 없음"
-          }
+          value={statValue(
+            reservationsQuery.isPending,
+            reservationsQuery.isError,
+            `${reservedReservations.length}건`,
+          )}
+          helper="수령을 기다리는 예약"
           icon={CalendarClock}
           tone="warning"
         />
         <StatCard
-          label="오늘 할인"
-          value={`${activeDeals.length}개`}
-          helper="판매 중인 할인"
+          label="판매 중 할인"
+          value={statValue(
+            dealsQuery.isPending,
+            dealsQuery.isError,
+            `${sellingDeals.length}개`,
+          )}
+          helper="지금 예약 가능한 할인"
           icon={Tags}
         />
         <StatCard
-          label="남은 재고"
-          value={`${remainingStock}개`}
-          helper={
-            activeDeals.some((deal) => deal.status === "low-stock")
-              ? "재고가 적은 상품이 있어요"
-              : "판매 가능한 전체 수량"
-          }
+          label="공개 품목"
+          value={statValue(
+            dealsQuery.isPending,
+            dealsQuery.isError,
+            `${totalItemCount}개`,
+          )}
+          helper="판매 중인 할인 품목"
           icon={Package}
-          tone="warning"
         />
         <StatCard
-          label="다음 픽업"
-          value={nextReservation?.pickupTime ?? "없음"}
-          helper={nextReservation?.customerName ?? "예약을 기다리고 있어요"}
-          icon={TimerReset}
+          label="대기 예약 금액"
+          value={statValue(
+            reservationsQuery.isPending,
+            reservationsQuery.isError,
+            formatPrice(pendingAmount),
+          )}
+          helper="픽업 대기 예약 합계"
+          icon={CircleDollarSign}
         />
       </section>
 
-      <ManagementPanel aria-labelledby="upcoming-reservations-title">
+      <ManagementPanel aria-labelledby="reserved-reservations-title">
         <SectionHeading
-          id="upcoming-reservations-title"
-          title="다음 픽업 예약"
-          description="픽업 시간이 가까운 순서예요."
+          id="reserved-reservations-title"
+          title="픽업 대기 예약"
+          description="최근 접수된 예약부터 보여 드려요."
           actionLabel="예약 관리"
           actionTo="/manage/reservations"
         />
-        <div className="divide-hairline border-hairline overflow-hidden rounded-lg border">
-          {upcomingReservations.map((reservation) => (
-            <Link
-              key={reservation.id}
-              to={`/manage/reservations?reservation=${reservation.id}`}
-              className="hover:bg-surface grid min-h-20 grid-cols-[64px_minmax(0,1fr)_auto] items-center gap-3 border-b px-3 py-3 last:border-b-0 sm:grid-cols-[80px_minmax(0,1fr)_auto] sm:px-4"
+
+        {reservationsQuery.isPending ? (
+          <p
+            className="text-muted flex min-h-40 items-center justify-center text-sm"
+            role="status"
+            aria-busy="true"
+          >
+            예약을 불러오는 중이에요.
+          </p>
+        ) : reservationsQuery.isError ? (
+          <div className="flex min-h-40 flex-col items-center justify-center text-center">
+            <p className="text-foreground text-sm font-semibold">
+              예약을 불러오지 못했어요.
+            </p>
+            <Button
+              type="button"
+              variant="secondary"
+              size="compact"
+              className="mt-3"
+              onClick={() => void reservationsQuery.refetch()}
             >
-              <strong className="text-foreground text-sm tabular-nums">
-                {reservation.pickupTime}
-              </strong>
-              <span className="min-w-0">
-                <span className="text-foreground block truncate text-sm font-semibold">
-                  예약 {reservation.id}
+              다시 시도
+            </Button>
+          </div>
+        ) : reservedReservations.length === 0 ? (
+          <EmptyState
+            title="아직 픽업 대기 예약이 없어요"
+            description="새 예약이 접수되면 여기에서 바로 확인할 수 있어요."
+          />
+        ) : (
+          <div className="divide-hairline border-hairline overflow-hidden rounded-lg border">
+            {reservedReservations.slice(0, 3).map((reservation) => (
+              <Link
+                key={reservation.reservationId}
+                to={`/manage/reservations?reservation=${reservation.reservationId}`}
+                className="hover:bg-surface grid min-h-20 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b px-3 py-3 last:border-b-0 sm:px-4"
+              >
+                <span className="min-w-0">
+                  <strong className="text-foreground block truncate text-sm">
+                    예약 #{reservation.reservationId}
+                  </strong>
+                  <span className="text-muted mt-1 block truncate text-xs tabular-nums">
+                    {formatShortManagementDateTime(reservation.createdAt)} 접수
+                    · {formatPrice(reservation.totalAmount)}
+                  </span>
                 </span>
-                <span className="text-muted mt-1 block truncate text-xs">
-                  {reservation.items.join(" · ")}
-                </span>
-              </span>
-              <ReservationStatusBadge status={reservation.status} />
-            </Link>
-          ))}
-        </div>
+                <ReservationStatusBadge status={reservation.status} />
+              </Link>
+            ))}
+          </div>
+        )}
       </ManagementPanel>
 
-      <ManagementPanel aria-labelledby="today-deals-title">
+      <ManagementPanel aria-labelledby="selling-deals-title">
         <SectionHeading
-          id="today-deals-title"
-          title="오늘 할인"
-          description="공개 중인 할인과 남은 재고예요."
+          id="selling-deals-title"
+          title="판매 중 할인"
+          description="고객이 지금 예약할 수 있는 할인이에요."
           actionLabel="할인 관리"
           actionTo="/manage/deals"
         />
-        <div className="grid gap-3">
-          {activeDeals.map((deal) => (
-            <article
-              key={deal.id}
-              className="border-hairline grid gap-3 rounded-lg border p-4 lg:grid-cols-[auto_minmax(200px,1fr)_120px_180px_100px] lg:items-center"
+
+        {dealsQuery.isPending ? (
+          <p
+            className="text-muted flex min-h-40 items-center justify-center text-sm"
+            role="status"
+            aria-busy="true"
+          >
+            할인을 불러오는 중이에요.
+          </p>
+        ) : dealsQuery.isError ? (
+          <div className="flex min-h-40 flex-col items-center justify-center text-center">
+            <p className="text-foreground text-sm font-semibold">
+              할인을 불러오지 못했어요.
+            </p>
+            <Button
+              type="button"
+              variant="secondary"
+              size="compact"
+              className="mt-3"
+              onClick={() => void dealsQuery.refetch()}
             >
-              <DealStatusBadge status={deal.status} />
-              <div className="min-w-0">
-                <h3 className="text-foreground truncate text-sm font-bold">
-                  {deal.name}
-                </h3>
-                <p className="text-muted mt-1 text-xs">
-                  {formatPrice(deal.salePrice)} · 예약 {deal.reserved}개
-                </p>
-              </div>
-              <p className="text-foreground text-sm font-semibold tabular-nums">
-                {deal.stock}개 남음
-              </p>
-              <p className="text-muted text-sm">{deal.pickupWindow}</p>
-              <Link
-                to={`/manage/deals/${deal.id}/edit`}
-                className="text-brand-link inline-flex min-h-11 items-center justify-center rounded-lg px-3 text-sm font-semibold lg:justify-start"
+              다시 시도
+            </Button>
+          </div>
+        ) : sellingDeals.length === 0 ? (
+          <EmptyState
+            title="오늘 공개한 할인이 없어요"
+            description="남은 상품과 판매 수량을 확인한 뒤 첫 할인을 등록해 보세요."
+            actionLabel="할인 등록"
+            actionTo="/manage/deals/new"
+          />
+        ) : (
+          <div className="grid gap-3">
+            {sellingDeals.slice(0, 3).map((deal) => (
+              <article
+                key={deal.dealId}
+                className="border-hairline grid gap-3 rounded-lg border p-4 lg:grid-cols-[auto_minmax(200px,1fr)_120px_180px_100px] lg:items-center"
               >
-                할인 보기
-              </Link>
-            </article>
-          ))}
-        </div>
+                <DealStatusBadge status={deal.status} />
+                <div className="min-w-0">
+                  <h3 className="text-foreground truncate text-sm font-bold">
+                    {deal.description || `할인 #${deal.dealId}`}
+                  </h3>
+                  <p className="text-muted mt-1 text-xs">
+                    {formatPrice(deal.lowestSalePrice)}부터 · 품목{" "}
+                    {deal.itemCount}개
+                  </p>
+                </div>
+                <p className="text-foreground text-sm font-semibold tabular-nums">
+                  품목 {deal.itemCount}개
+                </p>
+                <p className="text-muted text-sm tabular-nums">
+                  {formatShortManagementDateTime(deal.salesEndsAt)} 마감
+                </p>
+                <Link
+                  to={`/manage/deals/${deal.dealId}`}
+                  className="text-brand-link inline-flex min-h-11 items-center justify-center rounded-lg px-3 text-sm font-semibold lg:justify-start"
+                >
+                  상세 보기
+                </Link>
+              </article>
+            ))}
+          </div>
+        )}
       </ManagementPanel>
     </div>
   )

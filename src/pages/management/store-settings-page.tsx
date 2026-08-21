@@ -28,6 +28,8 @@ export function StoreSettingsPage() {
       address: store.address,
       addressDetail: store.addressDetail ?? "",
       description: store.description ?? "",
+      latitude: store.latitude,
+      longitude: store.longitude,
     }),
     [store],
   )
@@ -35,6 +37,12 @@ export function StoreSettingsPage() {
   const [savedStoreId, setSavedStoreId] = useState<string | null>(null)
   const {
     register,
+    control,
+    getValues,
+    setValue,
+    setError,
+    trigger,
+    clearErrors,
     handleSubmit,
     reset,
     formState: { errors, isSubmitting, isDirty },
@@ -55,7 +63,7 @@ export function StoreSettingsPage() {
         description="고객에게 보이는 가게 위치와 기본 픽업 안내를 관리하세요."
       />
 
-      {savedStoreId === store.id ? (
+      {savedStoreId === store.id && !isDirty ? (
         <FormSuccessMessage>가게 정보를 저장했어요.</FormSuccessMessage>
       ) : null}
 
@@ -75,6 +83,25 @@ export function StoreSettingsPage() {
         noValidate
         onChange={() => setSavedStoreId(null)}
         onSubmit={handleSubmit(async (values) => {
+          const hasConfirmedLocation =
+            values.latitude !== null && values.longitude !== null
+          const storeHadConfirmedLocation =
+            store.latitude !== null && store.longitude !== null
+          const addressChanged = values.address.trim() !== store.address.trim()
+
+          if (
+            !hasConfirmedLocation &&
+            (addressChanged || storeHadConfirmedLocation)
+          ) {
+            setError("latitude", {
+              type: "manual",
+              message: addressChanged
+                ? "변경한 주소의 위치를 찾은 뒤 저장해 주세요."
+                : "기존 픽업 위치를 다시 확인한 뒤 저장해 주세요.",
+            })
+            return
+          }
+
           try {
             await updateStore.mutateAsync({
               storeId: Number(store.id),
@@ -84,6 +111,8 @@ export function StoreSettingsPage() {
                 addressDetail: values.addressDetail,
                 phoneNumber: formatKoreanPhoneNumber(values.phone),
                 description: values.description,
+                latitude: values.latitude,
+                longitude: values.longitude,
               },
             })
             reset(values)
@@ -96,6 +125,11 @@ export function StoreSettingsPage() {
       >
         <StoreFormFields
           register={register}
+          control={control}
+          getValues={getValues}
+          setValue={setValue}
+          trigger={trigger}
+          clearErrors={clearErrors}
           errors={errors}
           idPrefix="settings"
         />

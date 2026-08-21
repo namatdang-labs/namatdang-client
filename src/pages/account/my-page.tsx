@@ -14,7 +14,10 @@ import { Link, useNavigate } from "react-router"
 
 import { currentUserQueryOptions } from "../../features/account/account-api"
 import { clearAccessToken } from "../../features/auth/auth-session"
-import { favoriteStoresQueryOptions } from "../../features/customer/customer-api"
+import {
+  favoriteStoresQueryOptions,
+  reservationsQueryOptions,
+} from "../../features/customer/customer-api"
 import { useDocumentTitle } from "../../shared/lib/use-document-title"
 import { Button } from "../../shared/ui/button"
 
@@ -23,6 +26,7 @@ export function MyPage() {
   const queryClient = useQueryClient()
   const userQuery = useQuery(currentUserQueryOptions())
   const favoritesQuery = useQuery(favoriteStoresQueryOptions())
+  const reservationsQuery = useQuery(reservationsQueryOptions({ size: 1 }))
   const favoriteStores = favoritesQuery.data ?? []
   const user = userQuery.data
   const roleLabels =
@@ -153,9 +157,13 @@ export function MyPage() {
                 <CalendarCheck2 className="size-5" />
               </span>
               <span>
-                <span className="text-muted block text-sm">예약 기능</span>
-                <span className="text-foreground mt-1 block text-base font-bold">
-                  화면 미리보기
+                <span className="text-muted block text-sm">내 예약</span>
+                <span className="text-foreground mt-1 block text-xl font-bold tabular-nums">
+                  {reservationsQuery.isPending
+                    ? "-"
+                    : reservationsQuery.isError
+                      ? "확인 필요"
+                      : `${reservationsQuery.data.totalElements}건`}
                 </span>
               </span>
             </span>

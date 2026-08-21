@@ -70,7 +70,7 @@ const faqItems = [
   {
     question: "예약한 상품은 어떻게 받나요?",
     answer:
-      "상품에 안내된 픽업 시간을 확인한 뒤 가게에 방문해 받으면 됩니다. 실제 Deal·예약 기능은 백엔드 API 개발 범위에 맞춰 순차적으로 제공될 예정입니다.",
+      "상품에 안내된 픽업 시간을 확인한 뒤 가게에 방문해 준비된 상품을 받으면 됩니다.",
   },
   {
     question: "가게 관리는 모바일에서도 가능한가요?",
@@ -108,7 +108,7 @@ function LandingHeader({ isAuthenticated }: { isAuthenticated: boolean }) {
         <Link
           to="/"
           className="inline-flex min-h-11 shrink-0 items-center rounded-lg"
-          aria-label="남았당 랜딩 홈"
+          aria-label="남았당 홈"
         >
           <img
             src="/brand/namatdang-logo.png"
@@ -120,7 +120,7 @@ function LandingHeader({ isAuthenticated }: { isAuthenticated: boolean }) {
         </Link>
 
         <nav
-          aria-label="랜딩 페이지 주요 메뉴"
+          aria-label="남았당 주요 메뉴"
           className="hidden items-center gap-1 lg:flex"
         >
           <a
@@ -139,7 +139,7 @@ function LandingHeader({ isAuthenticated }: { isAuthenticated: boolean }) {
             href="#management-preview"
             className="text-muted hover:bg-canvas hover:text-foreground inline-flex min-h-11 items-center rounded-xl px-3 text-sm font-medium transition-colors"
           >
-            관리 미리보기
+            가게 관리
           </a>
           <a
             href="#faq"
@@ -187,7 +187,7 @@ function HeroPreview() {
             <span className="bg-hairline size-2.5 rounded-full" />
           </div>
           <span className="bg-brand-tint text-brand-brown rounded-full px-3 py-1 text-xs font-semibold">
-            화면 예시
+            오늘의 할인
           </span>
         </div>
 
@@ -468,13 +468,13 @@ function JourneySection() {
 
               <div
                 className="bg-customer-canvas text-foreground mx-auto w-full max-w-xs rounded-[2rem] border-[6px] border-white/10 p-4 shadow-2xl transition-transform duration-500 motion-safe:hover:-translate-y-1 motion-reduce:transition-none"
-                aria-label={`${activeStep.label} 화면 예시`}
+                aria-label={`${activeStep.label} 이용 흐름`}
               >
                 <div className="mx-auto mb-5 h-1.5 w-12 rounded-full bg-black/15" />
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-brand-link text-xs font-bold">
-                      화면 예시
+                      남았당 이용
                     </p>
                     <p className="mt-1 font-bold">{activeStep.label}하기</p>
                   </div>
@@ -524,7 +524,7 @@ function ServicePreviewSection() {
         <div className="flex flex-col justify-between gap-5 md:flex-row md:items-end">
           <div className="max-w-2xl">
             <p className="text-brand-link text-sm font-bold">
-              서비스 화면 미리보기
+              남았당 주요 기능
             </p>
             <h2
               id="preview-title"
@@ -534,8 +534,8 @@ function ServicePreviewSection() {
             </h2>
           </div>
           <p className="bg-brand-tint text-brand-brown max-w-md rounded-xl px-4 py-3 text-sm leading-6 font-medium">
-            아래 Deal·예약 UI는 화면 예시입니다. 실제 제공 범위는 백엔드 API
-            연동에 따라 달라질 수 있어요.
+            가까운 할인 탐색부터 예약 확인, 관심 가게 관리까지 필요한 정보를
+            찾기 쉽게 정리했어요.
           </p>
         </div>
 
@@ -544,9 +544,7 @@ function ServicePreviewSection() {
             <span className="bg-bread-cream text-brand-brown inline-flex size-12 items-center justify-center rounded-2xl">
               <Search aria-hidden="true" />
             </span>
-            <p className="text-brand-link mt-8 text-xs font-bold">
-              Deal 화면 예시
-            </p>
+            <p className="text-brand-link mt-8 text-xs font-bold">할인 찾기</p>
             <h3 className="mt-2 text-xl font-bold">근처 마감 상품 찾기</h3>
             <p className="text-muted mt-3 text-sm leading-6">
               상품, 남은 수량, 픽업 시간을 카드에서 빠르게 비교해요.
@@ -563,9 +561,7 @@ function ServicePreviewSection() {
             <span className="bg-brand-tint text-brand-brown inline-flex size-12 items-center justify-center rounded-2xl">
               <CalendarCheck aria-hidden="true" />
             </span>
-            <p className="text-brand-link mt-8 text-xs font-bold">
-              예약 화면 예시
-            </p>
+            <p className="text-brand-link mt-8 text-xs font-bold">예약 확인</p>
             <h3 className="mt-2 text-xl font-bold">예약 상태 한눈에 확인</h3>
             <p className="text-muted mt-3 text-sm leading-6">
               예정된 픽업과 지난 내역을 구분해 필요한 예약을 찾아요.
@@ -590,7 +586,7 @@ function ServicePreviewSection() {
             <p className="text-brand-link mt-8 text-xs font-bold">가게 화면</p>
             <h3 className="mt-2 text-xl font-bold">좋아하는 가게 다시 찾기</h3>
             <p className="text-muted mt-3 text-sm leading-6">
-              관심 있는 가게를 저장하고 새 소식을 확인할 수 있어요.
+              관심 있는 가게를 저장하고 필요할 때 다시 찾아볼 수 있어요.
             </p>
             <div className="border-hairline mt-7 rounded-2xl border p-4">
               {["가게 기본 정보", "픽업 안내", "관심 가게 저장"].map(
@@ -745,7 +741,7 @@ function ManagementPreviewSection() {
               <span className="bg-success/70 size-2.5 rounded-full" />
             </div>
             <span className="bg-brand-tint text-brand-brown rounded-full px-3 py-1 text-xs font-bold">
-              관리 화면 예시 · 데스크톱
+              PC 가게 관리
             </span>
           </div>
 
@@ -830,7 +826,7 @@ function ManagementPreviewSection() {
                 <section className="border-hairline bg-canvas rounded-2xl border p-5 sm:p-6">
                   <div className="flex items-center justify-between gap-3">
                     <h4 className="font-bold">운영 항목</h4>
-                    <span className="text-muted text-xs">화면 예시</span>
+                    <span className="text-muted text-xs">오늘의 흐름</span>
                   </div>
                   <div className="mt-5 grid gap-3">
                     {[
