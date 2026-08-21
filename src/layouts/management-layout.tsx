@@ -44,8 +44,20 @@ function ManagementNavigation({ mobile = false }: { mobile?: boolean }) {
             )
           }
         >
-          <Icon className="size-5" aria-hidden="true" />
-          {label}
+          {({ isActive }) => (
+            <>
+              <span
+                data-active-indicator
+                className={cn(
+                  "h-5 w-1 shrink-0 rounded-full",
+                  isActive ? "bg-primary" : "bg-transparent",
+                )}
+                aria-hidden="true"
+              />
+              <Icon className="size-5" aria-hidden="true" />
+              {label}
+            </>
+          )}
         </NavLink>
       ))}
     </nav>
@@ -56,16 +68,22 @@ function StoreSwitcher({ compact = false }: { compact?: boolean }) {
   const { store, stores, setStoreId } = useManagementStore()
 
   return (
-    <div className={cn("grid gap-2", compact && "min-w-0 flex-1")}>
+    <div
+      className={cn(
+        "bg-brand-tint grid gap-2 rounded-xl p-3",
+        compact &&
+          "min-w-0 flex-1 grid-cols-[auto_minmax(0,1fr)] items-center gap-2 p-1.5 pl-2",
+      )}
+    >
       <label
         htmlFor={compact ? "mobile-store" : "desktop-store"}
-        className={cn("text-muted text-xs font-semibold", compact && "sr-only")}
+        className="text-brand-brown text-xs font-bold whitespace-nowrap"
       >
-        현재 관리 가게
+        현재 관리 중
       </label>
       <select
         id={compact ? "mobile-store" : "desktop-store"}
-        className="border-hairline bg-canvas text-foreground min-h-11 min-w-0 rounded-lg border px-3 text-sm font-semibold"
+        className="border-primary/20 bg-canvas text-foreground min-h-11 min-w-0 rounded-lg border px-3 text-sm font-semibold"
         value={store.id}
         onChange={(event) => setStoreId(event.target.value)}
       >
