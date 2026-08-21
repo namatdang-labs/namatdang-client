@@ -1,12 +1,6 @@
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query"
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react"
-import {
-  Map as MapIcon,
-  MapPin,
-  RefreshCw,
-  Search,
-  Store as StoreIcon,
-} from "lucide-react"
+import { Map as MapIcon, MapPin, RefreshCw, Search } from "lucide-react"
 import { Link, useLocation, useSearchParams } from "react-router"
 
 import {
@@ -19,7 +13,6 @@ import {
   infiniteSellingDealsQueryOptions,
   infiniteStoresQueryOptions,
   storesOnMapQueryOptions,
-  type StoreMapView,
   type StoreView,
 } from "../../features/customer/customer-api"
 import {
@@ -30,6 +23,8 @@ import {
 } from "../../features/customer/location-preference"
 import { useDocumentTitle } from "../../shared/lib/use-document-title"
 import { Button } from "../../shared/ui/button"
+import { RepresentativeImage } from "../../shared/ui/representative-image"
+import { StatusBadge } from "../../shared/ui/status-badge"
 
 const STORE_PAGE_SIZE = 20
 const DEAL_PAGE_SIZE = 20
@@ -41,37 +36,58 @@ const DISABLED_MAP_BOUNDS = {
 }
 
 type RegisteredStore = Pick<
-  StoreView | StoreMapView,
+  StoreView,
   "id" | "routeId" | "name" | "address"
 > & {
   distanceKilometers?: number
+  hasActiveDeal?: boolean
+  activeDealCount?: number
 }
 
 function RegisteredStoreCard({ store }: { store: RegisteredStore }) {
   return (
     <Link
       to={`/stores/${store.routeId}`}
-      className="border-hairline bg-canvas hover:border-primary group rounded-2xl border p-5 transition-colors"
+      className="border-hairline bg-canvas hover:border-primary group grid h-full min-h-32 grid-cols-[36%_minmax(0,1fr)] overflow-hidden rounded-2xl border transition-colors sm:flex sm:min-h-0 sm:flex-col"
     >
-      <span className="bg-bread-cream text-brand-brown flex size-11 items-center justify-center rounded-xl">
-        <StoreIcon aria-hidden="true" size={21} />
-      </span>
-      <span className="text-foreground mt-4 block text-lg font-bold group-hover:underline">
-        {store.name}
-      </span>
-      <span className="text-muted mt-2 block text-sm leading-6">
-        {store.address}
-      </span>
-      {typeof store.distanceKilometers === "number" ? (
-        <span className="text-brand-link mt-2 block text-sm font-semibold tabular-nums">
-          {store.distanceKilometers < 1
-            ? `${Math.round(store.distanceKilometers * 1_000)}m`
-            : `${store.distanceKilometers.toFixed(1)}km`}
-        </span>
-      ) : null}
-      <span className="text-brand-link mt-4 block text-sm font-semibold">
-        가게 정보 보기
-      </span>
+      <RepresentativeImage
+        kind="store"
+        className="h-full w-full sm:aspect-[16/9] sm:h-auto"
+      />
+
+      <div className="min-w-0 flex-1 p-3 sm:p-4">
+        <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
+          <h3 className="text-foreground truncate text-base font-bold group-hover:underline">
+            {store.name}
+          </h3>
+          {typeof store.hasActiveDeal === "boolean" ? (
+            <StatusBadge
+              className="shrink-0"
+              tone={store.hasActiveDeal ? "brand" : "muted"}
+            >
+              {store.hasActiveDeal ? "할인 중" : "현재 할인 없음"}
+            </StatusBadge>
+          ) : null}
+        </div>
+
+        {store.hasActiveDeal && typeof store.activeDealCount === "number" ? (
+          <p className="text-foreground mt-1 text-xs font-semibold tabular-nums">
+            {store.activeDealCount}개 판매 중
+          </p>
+        ) : null}
+
+        <p className="text-muted mt-2 line-clamp-2 text-sm leading-5">
+          {store.address}
+        </p>
+
+        {typeof store.distanceKilometers === "number" ? (
+          <p className="text-brand-link mt-2 text-sm font-semibold tabular-nums">
+            {store.distanceKilometers < 1
+              ? `${Math.round(store.distanceKilometers * 1_000)}m`
+              : `${store.distanceKilometers.toFixed(1)}km`}
+          </p>
+        ) : null}
+      </div>
     </Link>
   )
 }
@@ -490,11 +506,13 @@ export function HomePage() {
             {[0, 1, 2].map((index) => (
               <div
                 key={index}
-                className="border-hairline bg-canvas grid gap-3 rounded-2xl border p-5"
+                className="border-hairline bg-canvas grid min-h-32 grid-cols-[36%_minmax(0,1fr)] overflow-hidden rounded-2xl border sm:flex sm:min-h-0 sm:flex-col"
               >
-                <span className="bg-surface size-11 animate-pulse rounded-xl motion-reduce:animate-none" />
-                <span className="bg-surface h-6 w-2/3 animate-pulse rounded motion-reduce:animate-none" />
-                <span className="bg-surface h-4 w-full animate-pulse rounded motion-reduce:animate-none" />
+                <span className="bg-surface block h-full w-full animate-pulse motion-reduce:animate-none sm:aspect-[16/9] sm:h-auto" />
+                <span className="grid gap-3 p-3 sm:p-4">
+                  <span className="bg-surface h-5 w-2/3 animate-pulse rounded motion-reduce:animate-none" />
+                  <span className="bg-surface h-4 w-full animate-pulse rounded motion-reduce:animate-none" />
+                </span>
               </div>
             ))}
           </div>
