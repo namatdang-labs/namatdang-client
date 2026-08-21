@@ -4,61 +4,112 @@ import { LOCATION_PREFERENCE_STORAGE_KEY } from "../src/features/customer/locati
 import { FUTURE_ACCESS_TOKEN } from "../src/test/auth-token"
 import { installMockApi } from "./mock-api"
 
-test("방문자가 공개 랜딩에서 서비스 소개를 보고 회원가입으로 이동한다", async ({
+test("방문자가 공개 랜딩에서 서비스 소개를 보고 할인 탐색으로 이동한다", async ({
   page,
 }) => {
   const pageErrors: Error[] = []
   page.on("pageerror", (error) => pageErrors.push(error))
+  const api = await installMockApi(page, { authenticated: false })
   await page.goto("/", { waitUntil: "domcontentloaded" })
+
+  const heroHeading = page.getByRole("heading", {
+    level: 1,
+    name: "오늘 남은 빵, 가까이서 예약해요.",
+  })
+  const hero = page.locator("section").filter({ has: heroHeading })
+  const primaryAction = hero.getByRole("link", {
+    name: "오늘 할인 상품 보기",
+  })
+  const mapAction = hero.getByRole("link", {
+    name: "지도에서 가까운 가게 찾기",
+  })
+
+  await expect(heroHeading).toBeVisible()
+  await expect(hero.getByText(/가격.*남은 수량.*예약 마감 시간/)).toBeVisible()
+  await expect(primaryAction).toHaveAttribute("href", "/app")
+  await expect(mapAction).toHaveAttribute("href", "/map")
+  const [primaryActionBox, mapActionBox] = await Promise.all([
+    primaryAction.boundingBox(),
+    mapAction.boundingBox(),
+  ])
+  expect(primaryActionBox?.height).toBeGreaterThanOrEqual(44)
+  expect(mapActionBox?.height).toBeGreaterThanOrEqual(44)
 
   await expect(
     page.getByRole("heading", {
-      level: 1,
-      name: "마감 재고를 판매 기회로, 첫 방문을 단골로.",
+      level: 2,
+      name: "할인 찾기부터 픽업까지",
     }),
   ).toBeVisible()
+  const primaryNavigation = page.getByRole("navigation", {
+    name: "남았당 주요 메뉴",
+  })
+  await expect(
+    primaryNavigation.getByRole("link", { name: "로그인" }),
+  ).toBeVisible()
+  await expect(
+    primaryNavigation.getByRole("link", { name: "할인 둘러보기" }),
+  ).toHaveAttribute("href", "/app")
+  await expect(page.locator('a[href="/signup"]')).toHaveCount(0)
+
   await expect(
     page.getByRole("heading", {
       level: 2,
-      name: "발견부터 픽업까지, 오늘 안에",
+      name: "지금 예약 가능한 할인",
     }),
   ).toBeVisible()
-  await expect(page.getByRole("link", { name: "로그인" })).toBeVisible()
+  const firstLiveDeal = page.getByRole("link", {
+    name: "소금빵 할인 상세 보기",
+  })
+  await expect(firstLiveDeal).toBeVisible()
+  expect(
+    api.requests.find(
+      ({ method, pathname }) =>
+        method === "GET" && pathname === "/api/v1/deals?page=0&size=4",
+    )?.authorization,
+  ).toBeFalsy()
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= window.innerWidth,
     ),
   ).toBe(true)
 
-  await page.getByRole("tab", { name: "02 예약" }).click()
+  const ownerHeading = page.getByRole("heading", {
+    level: 2,
+    name: "오늘 남은 상품을 직접 공개하세요",
+  })
+  const ownerSection = page.locator("section").filter({ has: ownerHeading })
+  await ownerHeading.scrollIntoViewIfNeeded()
   await expect(
-    page.getByRole("heading", {
-      level: 3,
-      name: "원하는 상품을 미리 예약해요",
-    }),
-  ).toBeVisible()
+    ownerSection.getByRole("link", { name: "가게 등록하기" }),
+  ).toHaveAttribute("href", "/login?redirect=%2Fmanage%2Fonboarding")
 
-  await page
-    .getByRole("heading", {
-      level: 2,
-      name: "넓은 화면에서 운영 흐름을 더 선명하게",
-    })
-    .scrollIntoViewIfNeeded()
+  const finalHeading = page.getByRole("heading", {
+    level: 2,
+    name: "오늘 가까운 가게의 할인을 확인해 보세요",
+  })
+  const finalSection = page.locator("section").filter({ has: finalHeading })
+  await finalHeading.scrollIntoViewIfNeeded()
+  await expect(
+    finalSection.getByRole("link", { name: "할인 상품 보기" }),
+  ).toHaveAttribute("href", "/app")
+  await expect(
+    page.getByRole("heading", { name: /고객 리뷰|이용 후기|사용자 후기/ }),
+  ).toHaveCount(0)
+  await expect(
+    page.getByText(/누적 예약|제휴 가게|이용자 만족도|고객 만족도/),
+  ).toHaveCount(0)
   expect(
     await page
       .locator("header")
       .evaluate((header) => Math.round(header.getBoundingClientRect().top)),
   ).toBe(0)
 
-  await page.getByRole("link", { name: "지금 사용해보기" }).click()
-  await expect(page).toHaveURL(/\/signup$/)
+  await finalSection.getByRole("link", { name: "할인 상품 보기" }).click()
+  await expect(page).toHaveURL(/\/app$/)
   await expect(
-    page.getByRole("heading", { level: 1, name: "남았당을 시작해 보세요" }),
+    page.getByRole("heading", { level: 1, name: "지금 예약 가능한 할인" }),
   ).toBeVisible()
-  await page.getByRole("textbox", { name: "전화번호" }).fill("01012345678")
-  await expect(page.getByRole("textbox", { name: "전화번호" })).toHaveValue(
-    "010-1234-5678",
-  )
   expect(pageErrors).toEqual([])
 })
 
