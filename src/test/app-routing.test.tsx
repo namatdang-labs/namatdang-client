@@ -211,19 +211,37 @@ test("토큰 없이 공개 랜딩을 보고 서비스와 로그인 경로를 선
     "href",
     "/login",
   )
-  expect(screen.queryByRole("tab")).not.toBeInTheDocument()
   expect(
     screen.getByRole("heading", {
       level: 2,
-      name: "할인 찾기부터 픽업까지",
+      name: "오늘의 할인을 한눈에 골라요",
     }),
   ).toBeInTheDocument()
+  expect(
+    screen.getByRole("heading", {
+      level: 2,
+      name: "가까운 할인 가게를 지도에서 찾아요",
+    }),
+  ).toBeInTheDocument()
+  expect(
+    screen.getByRole("heading", {
+      level: 2,
+      name: "품목과 수량, 금액을 한 번 더 확인해요",
+    }),
+  ).toBeInTheDocument()
+  expect(screen.queryByRole("tab")).not.toBeInTheDocument()
+  expect(
+    screen.queryByRole("heading", { name: "자주 묻는 질문" }),
+  ).not.toBeInTheDocument()
   expect(
     within(hero as HTMLElement).getByRole("link", {
       name: "지도에서 가까운 가게 찾기",
     }),
   ).toHaveAttribute("href", "/map")
   expect(document.querySelector('a[href="/signup"]')).not.toBeInTheDocument()
+  expect(
+    apiState.requests.some(({ pathname }) => pathname.startsWith("/api/v1/")),
+  ).toBe(false)
 
   await user.click(
     within(hero as HTMLElement).getByRole("link", {
@@ -237,6 +255,11 @@ test("토큰 없이 공개 랜딩을 보고 서비스와 로그인 경로를 선
     }),
   ).toBeInTheDocument()
   expect(router.state.location.pathname).toBe("/app")
+  expect(
+    apiState.requests.some(({ pathname }) =>
+      pathname.startsWith("/api/v1/deals"),
+    ),
+  ).toBe(true)
 })
 
 test("다른 탭에서 로그인하면 로그인 화면이 기억한 경로로 이동한다", async () => {

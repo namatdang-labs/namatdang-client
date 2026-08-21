@@ -28,6 +28,11 @@ test("방문자가 공개 랜딩에서 서비스 소개를 보고 할인 탐색�
   await expect(hero.getByText(/가격.*남은 수량.*예약 마감 시간/)).toBeVisible()
   await expect(primaryAction).toHaveAttribute("href", "/app")
   await expect(mapAction).toHaveAttribute("href", "/map")
+  await expect(
+    hero.getByRole("img", {
+      name: "빵과 디저트가 진열된 동네 베이커리",
+    }),
+  ).toBeVisible()
   const [primaryActionBox, mapActionBox] = await Promise.all([
     primaryAction.boundingBox(),
     mapAction.boundingBox(),
@@ -35,12 +40,6 @@ test("방문자가 공개 랜딩에서 서비스 소개를 보고 할인 탐색�
   expect(primaryActionBox?.height).toBeGreaterThanOrEqual(44)
   expect(mapActionBox?.height).toBeGreaterThanOrEqual(44)
 
-  await expect(
-    page.getByRole("heading", {
-      level: 2,
-      name: "할인 찾기부터 픽업까지",
-    }),
-  ).toBeVisible()
   const primaryNavigation = page.getByRole("navigation", {
     name: "남았당 주요 메뉴",
   })
@@ -52,22 +51,76 @@ test("방문자가 공개 랜딩에서 서비스 소개를 보고 할인 탐색�
   ).toHaveAttribute("href", "/app")
   await expect(page.locator('a[href="/signup"]')).toHaveCount(0)
 
+  const dealsHeading = page.getByRole("heading", {
+    level: 2,
+    name: "오늘의 할인을 한눈에 골라요",
+  })
+  const dealsSection = page.locator("section").filter({ has: dealsHeading })
+  const dealPhotoNames = [
+    "소금빵 3개 세트 사진",
+    "크루아상 2개와 뺑 오 쇼콜라 사진",
+    "디저트 모음 박스 사진",
+  ] as const
+  await expect(dealsHeading).toBeVisible()
+  await expect(dealsSection.getByRole("img")).toHaveCount(3)
+  for (const dealPhotoName of dealPhotoNames) {
+    const dealPhoto = dealsSection.getByRole("img", {
+      name: dealPhotoName,
+    })
+    await expect(dealPhoto).toBeVisible()
+    await expect
+      .poll(() =>
+        dealPhoto.evaluate(
+          (image) =>
+            image instanceof HTMLImageElement &&
+            image.complete &&
+            image.naturalWidth > 0,
+        ),
+      )
+      .toBe(true)
+  }
+
+  const mapHeading = page.getByRole("heading", {
+    level: 2,
+    name: "가까운 할인 가게를 지도에서 찾아요",
+  })
+  const mapSection = page.locator("section").filter({ has: mapHeading })
+  await expect(mapHeading).toBeVisible()
   await expect(
-    page.getByRole("heading", {
-      level: 2,
-      name: "지금 예약 가능한 할인",
+    mapSection.getByRole("img", { name: "대구 동성로 주변 가게 지도" }),
+  ).toBeVisible()
+  await expect(
+    mapSection.getByRole("link", { name: "지도로 할인 가게 찾기" }),
+  ).toHaveAttribute("href", "/map")
+
+  const reservationHeading = page.getByRole("heading", {
+    level: 2,
+    name: "품목과 수량, 금액을 한 번 더 확인해요",
+  })
+  const reservationSection = page
+    .locator("section")
+    .filter({ has: reservationHeading })
+  await expect(reservationHeading).toBeVisible()
+  await expect(
+    reservationSection.getByRole("img", {
+      name: "예약한 소금빵 3개 세트",
     }),
   ).toBeVisible()
-  const firstLiveDeal = page.getByRole("link", {
-    name: "소금빵 할인 상세 보기",
-  })
-  await expect(firstLiveDeal).toBeVisible()
+  await expect(
+    reservationSection.getByText("예약 마감", { exact: true }),
+  ).toBeVisible()
+  await expect(reservationSection.getByText("오늘 19:30")).toBeVisible()
+
   expect(
-    api.requests.find(
-      ({ method, pathname }) =>
-        method === "GET" && pathname === "/api/v1/deals?page=0&size=4",
-    )?.authorization,
-  ).toBeFalsy()
+    api.requests.filter(({ pathname }) => pathname.startsWith("/api/v1/")),
+  ).toEqual([])
+  await expect(page.getByRole("tab")).toHaveCount(0)
+  await expect(
+    page.getByRole("heading", { name: "자주 묻는 질문" }),
+  ).toHaveCount(0)
+  await expect(page.locator("body")).not.toContainText(
+    /예시|미리보기|누적 예약|제휴 가게|이용자 만족도|고객 만족도|API|TODO|추후 구현|테스트용|준비 중/,
+  )
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= window.innerWidth,
@@ -96,9 +149,6 @@ test("방문자가 공개 랜딩에서 서비스 소개를 보고 할인 탐색�
   await expect(
     page.getByRole("heading", { name: /고객 리뷰|이용 후기|사용자 후기/ }),
   ).toHaveCount(0)
-  await expect(
-    page.getByText(/누적 예약|제휴 가게|이용자 만족도|고객 만족도/),
-  ).toHaveCount(0)
   expect(
     await page
       .locator("header")
@@ -110,6 +160,11 @@ test("방문자가 공개 랜딩에서 서비스 소개를 보고 할인 탐색�
   await expect(
     page.getByRole("heading", { level: 1, name: "지금 예약 가능한 할인" }),
   ).toBeVisible()
+  await expect
+    .poll(() =>
+      api.requests.some(({ pathname }) => pathname.startsWith("/api/v1/deals")),
+    )
+    .toBe(true)
   expect(pageErrors).toEqual([])
 })
 
