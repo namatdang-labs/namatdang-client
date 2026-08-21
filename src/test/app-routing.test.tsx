@@ -77,7 +77,7 @@ vi.mock("../features/map", () => ({
 }))
 
 const coreScreens = [
-  ["landing", "/", "마감 재고를 판매 기회로, 첫 방문을 단골로."],
+  ["landing", "/", "오늘의 맛있는 발견, 우리 동네에서."],
   ["login", "/login", "다시 만나서 반가워요"],
   ["signup", "/signup", "남았당을 시작해 보세요"],
   ["home", "/app", "지금 예약 가능한 할인"],
@@ -192,38 +192,74 @@ test("공개 랜딩을 포함한 22개 핵심 화면을 대표 경로에서 렌�
   ).toBe(true)
 })
 
-test("토큰 없이 공개 랜딩을 보고 시작하기와 로그인 경로를 선택할 수 있다", async () => {
+test("토큰 없이 공개 랜딩을 보고 서비스와 로그인 경로를 선택할 수 있다", async () => {
   clearAccessToken()
   window.localStorage.clear()
   const user = userEvent.setup()
 
   await renderApp("/")
 
-  expect(
-    await screen.findByRole("heading", {
-      level: 1,
-      name: "마감 재고를 판매 기회로, 첫 방문을 단골로.",
-    }),
-  ).toBeInTheDocument()
+  const heroHeading = await screen.findByRole("heading", {
+    level: 1,
+    name: "오늘의 맛있는 발견, 우리 동네에서.",
+  })
+  const hero = heroHeading.closest("section")
+
+  expect(hero).not.toBeNull()
   expect(router.state.location.pathname).toBe("/")
   expect(screen.getByRole("link", { name: "로그인" })).toHaveAttribute(
     "href",
     "/login",
   )
-  for (const tab of screen.getAllByRole("tab")) {
-    expect(
-      document.getElementById(tab.getAttribute("aria-controls") ?? ""),
-    ).not.toBeNull()
-  }
+  expect(
+    screen.getByRole("heading", {
+      level: 2,
+      name: "오늘의 할인을 한눈에 골라요",
+    }),
+  ).toBeInTheDocument()
+  expect(
+    screen.getByRole("heading", {
+      level: 2,
+      name: "가까운 할인 가게를 지도에서 찾아요",
+    }),
+  ).toBeInTheDocument()
+  expect(
+    screen.getByRole("heading", {
+      level: 2,
+      name: "품목과 수량, 금액을 한 번 더 확인해요",
+    }),
+  ).toBeInTheDocument()
+  expect(screen.queryByRole("tab")).not.toBeInTheDocument()
+  expect(
+    screen.queryByRole("heading", { name: "자주 묻는 질문" }),
+  ).not.toBeInTheDocument()
+  expect(
+    within(hero as HTMLElement).getByRole("link", {
+      name: "지도에서 가까운 가게 찾기",
+    }),
+  ).toHaveAttribute("href", "/map")
+  expect(document.querySelector('a[href="/signup"]')).not.toBeInTheDocument()
+  expect(
+    apiState.requests.some(({ pathname }) => pathname.startsWith("/api/v1/")),
+  ).toBe(false)
 
-  await user.click(screen.getByRole("link", { name: "지금 사용해보기" }))
+  await user.click(
+    within(hero as HTMLElement).getByRole("link", {
+      name: "오늘 할인 상품 보기",
+    }),
+  )
   expect(
     await screen.findByRole("heading", {
       level: 1,
-      name: "남았당을 시작해 보세요",
+      name: "지금 예약 가능한 할인",
     }),
   ).toBeInTheDocument()
-  expect(router.state.location.pathname).toBe("/signup")
+  expect(router.state.location.pathname).toBe("/app")
+  expect(
+    apiState.requests.some(({ pathname }) =>
+      pathname.startsWith("/api/v1/deals"),
+    ),
+  ).toBe(true)
 })
 
 test("다른 탭에서 로그인하면 로그인 화면이 기억한 경로로 이동한다", async () => {

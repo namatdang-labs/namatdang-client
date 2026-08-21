@@ -109,6 +109,7 @@ test("중앙 브랜드 핀을 고정하고 실제 이동이 끝났을 때만 좌
   expect(mapInstances[0].options).toMatchObject({
     keyboardShortcuts: true,
     zoom: 16,
+    zoomControl: false,
   })
   const pin = container.querySelector('img[src="/brand/namatdang-icon.png"]')
   expect(pin).toBeInTheDocument()

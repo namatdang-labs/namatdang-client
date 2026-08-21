@@ -77,10 +77,7 @@ export function StoreMap({
       center: new maps.LatLng(center.latitude, center.longitude),
       zoom: initialZoom,
       keyboardShortcuts: true,
-      zoomControl: true,
-      zoomControlOptions: {
-        position: maps.Position.TOP_RIGHT,
-      },
+      zoomControl: false,
     })
     mapRef.current = map
     const markers = markersRef.current

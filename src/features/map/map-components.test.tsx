@@ -209,6 +209,10 @@ test("SDK가 나중에 준비되어도 위치 핀을 드래그할 수 있다", a
   )
 
   await waitFor(() => expect(markerInstances).toHaveLength(1))
+  expect(mapInstances[0].options).toMatchObject({
+    keyboardShortcuts: true,
+    zoomControl: false,
+  })
   const marker = markerInstances[0]
   expect(marker.draggable).toBe(true)
   expect(marker.cursor).toBe("grab")
@@ -274,6 +278,10 @@ test("선택한 가게는 큰 남았당 핀으로 표시하고 전체 범위를 
   )
 
   await waitFor(() => expect(markerInstances).toHaveLength(2))
+  expect(mapInstances[0].options).toMatchObject({
+    keyboardShortcuts: true,
+    zoomControl: false,
+  })
   expect(mapInstances[0].fitBoundsCalls).toBe(1)
   expect(mapInstances[0].panToCalls).toHaveLength(0)
 
