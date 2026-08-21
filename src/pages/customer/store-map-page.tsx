@@ -1,15 +1,6 @@
 import { useMemo, useState, type FormEvent } from "react"
 import { useQuery } from "@tanstack/react-query"
-import {
-  BadgePercent,
-  Flame,
-  LoaderCircle,
-  MapPin,
-  Phone,
-  RefreshCw,
-  Search,
-  X,
-} from "lucide-react"
+import { Flame, LoaderCircle, RefreshCw, Search, X } from "lucide-react"
 import { Link, useNavigate, useSearchParams } from "react-router"
 
 import {
@@ -29,6 +20,7 @@ import {
 } from "../../features/map/fullscreen-map-shell"
 import { useDocumentTitle } from "../../shared/lib/use-document-title"
 import { Button } from "../../shared/ui/button"
+import { RepresentativeImage } from "../../shared/ui/representative-image"
 import { StatusBadge } from "../../shared/ui/status-badge"
 
 const DEFAULT_BOUNDS: MapBounds = {
@@ -163,79 +155,6 @@ export function StoreMapPage() {
       description="지도를 움직여 원하는 지역의 가게와 할인 정보를 찾아보세요."
       title="지도에서 가게 찾기"
       onBack={() => navigate(listHref)}
-      footer={
-        selectedStore ? (
-          <article
-            className="mx-auto flex w-full max-w-3xl flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
-            aria-live="polite"
-            aria-labelledby="selected-map-store-title"
-          >
-            <div className="flex min-w-0 items-start gap-3">
-              <span className="bg-brand-tint text-brand-brown flex size-10 shrink-0 items-center justify-center rounded-xl">
-                <MapPin aria-hidden="true" size={20} />
-              </span>
-              <div className="min-w-0">
-                <p className="text-brand-brown text-xs font-semibold">
-                  선택한 가게
-                </p>
-                <h2
-                  id="selected-map-store-title"
-                  className="text-foreground mt-0.5 truncate font-bold"
-                >
-                  {selectedStore.name}
-                </h2>
-                <p className="text-muted mt-1 line-clamp-2 text-sm leading-5">
-                  {selectedStore.address}
-                </p>
-                {selectedStore.phoneNumber ? (
-                  <p className="text-muted mt-1 flex items-center gap-1 text-xs">
-                    <Phone aria-hidden="true" size={14} />
-                    {selectedStore.phoneNumber}
-                  </p>
-                ) : null}
-                <div className="mt-2 flex flex-wrap items-center gap-2">
-                  <StatusBadge
-                    tone={selectedStore.hasActiveDeal ? "brand" : "muted"}
-                  >
-                    {selectedStore.hasActiveDeal ? "할인 중" : "현재 할인 없음"}
-                  </StatusBadge>
-                  {selectedStore.hasActiveDeal ? (
-                    <span className="text-foreground flex items-center gap-1 text-sm font-semibold">
-                      <BadgePercent aria-hidden="true" size={16} />
-                      {selectedStore.activeDealCount}개 · 할인 판매 중
-                    </span>
-                  ) : (
-                    <span className="text-muted text-xs leading-5">
-                      현재 예약 가능한 마감 할인이 없습니다.
-                    </span>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <div className="flex shrink-0 items-center gap-2">
-              <Button
-                asChild
-                variant="secondary"
-                className="min-w-0 flex-1 sm:min-w-36"
-              >
-                <Link to={`/stores/${selectedStore.routeId}`}>
-                  가게 정보 보기
-                </Link>
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                aria-label={`${selectedStore.name} 간단 정보 닫기`}
-                onClick={() => setSelectedStoreId(null)}
-              >
-                <X aria-hidden="true" />
-              </Button>
-            </div>
-          </article>
-        ) : undefined
-      }
     >
       <StoreMap
         stores={mapStores}
@@ -254,6 +173,67 @@ export function StoreMapPage() {
         ariaLabel="등록된 가게 위치 지도"
         className="h-full w-full"
       />
+
+      {selectedStore ? (
+        <article
+          data-map-selected-store-card
+          className="border-hairline bg-canvas/95 pointer-events-auto absolute inset-x-3 bottom-[calc(12px+env(safe-area-inset-bottom))] z-40 mx-auto max-h-[calc(100%-24px)] max-w-md overflow-y-auto rounded-2xl border p-3 shadow-lg sm:inset-x-auto sm:left-1/2 sm:w-[min(420px,calc(100%-48px))] sm:-translate-x-1/2 sm:p-4"
+          aria-live="polite"
+          aria-atomic="true"
+          aria-labelledby="selected-map-store-title"
+        >
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="absolute top-2 right-2 z-10"
+            aria-label={`${selectedStore.name} 간단 정보 닫기`}
+            onClick={() => setSelectedStoreId(null)}
+          >
+            <X aria-hidden="true" />
+          </Button>
+
+          <div className="flex min-w-0 gap-3 pr-10">
+            <RepresentativeImage
+              kind="store"
+              className="size-20 shrink-0 rounded-xl"
+            />
+
+            <div className="min-w-0 flex-1">
+              <h2
+                id="selected-map-store-title"
+                className="text-foreground truncate text-base font-bold"
+              >
+                {selectedStore.name}
+              </h2>
+              <div className="mt-1 flex flex-wrap items-center gap-2">
+                <StatusBadge
+                  tone={selectedStore.hasActiveDeal ? "brand" : "muted"}
+                >
+                  {selectedStore.hasActiveDeal ? "할인 중" : "현재 할인 없음"}
+                </StatusBadge>
+                {selectedStore.hasActiveDeal ? (
+                  <span className="text-foreground text-xs font-semibold tabular-nums">
+                    {selectedStore.activeDealCount}개 판매 중
+                  </span>
+                ) : null}
+              </div>
+              <p className="text-muted mt-2 line-clamp-2 text-sm leading-5">
+                {selectedStore.address}
+              </p>
+            </div>
+          </div>
+
+          <Button
+            asChild
+            variant="secondary"
+            size="compact"
+            className="mt-3 w-full"
+          >
+            <Link to={`/stores/${selectedStore.routeId}`}>가게 정보 보기</Link>
+          </Button>
+        </article>
+      ) : null}
 
       <FullscreenMapTopOverlay>
         <FullscreenMapSearchForm

@@ -173,7 +173,11 @@ test("고객이 품목 수량을 고르고 예약을 완료한다", async ({ pag
     name: "성수 빵연구소",
   })
   await expect(selectedStore).toContainText("할인 중")
-  await expect(selectedStore).toContainText("1개 · 할인 판매 중")
+  await expect(selectedStore).toContainText("1개 판매 중")
+  await expect(selectedStore.getByText("가게 기본 이미지")).toBeAttached()
+  await expect(
+    selectedStore.getByRole("link", { name: "가게 정보 보기" }),
+  ).toHaveAttribute("href", "/stores/101")
 
   await page.getByRole("button", { name: "가게 목록으로 돌아가기" }).click()
   await expect.poll(() => new URL(page.url()).pathname).toBe("/app")

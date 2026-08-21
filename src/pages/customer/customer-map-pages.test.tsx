@@ -513,36 +513,54 @@ test("별도 지도 페이지에 유효한 위치만 표시하고 가게를 선�
   expect(
     screen.queryByRole("complementary", { name: "지도 가게 목록" }),
   ).not.toBeInTheDocument()
-  expect(screen.queryByText("선택한 가게")).not.toBeInTheDocument()
+  expect(
+    screen.queryByRole("article", { name: "성수 테스트 빵집" }),
+  ).not.toBeInTheDocument()
 
   await user.click(
     within(map).getByRole("button", { name: "성수 테스트 빵집 마커" }),
   )
-  const selectedStoreCard = screen.getByText("선택한 가게").closest("article")
-  expect(selectedStoreCard).not.toBeNull()
+  const selectedStoreCard = screen.getByRole("article", {
+    name: "성수 테스트 빵집",
+  })
+  expect(selectedStoreCard).toHaveAttribute("data-map-selected-store-card")
+  expect(selectedStoreCard).toHaveClass("absolute", "max-w-md", "rounded-2xl")
+  expect(selectedStoreCard.closest("footer")).toBeNull()
   expect(
-    within(selectedStoreCard!).getByText("성수 테스트 빵집"),
+    within(selectedStoreCard).getByText("가게 기본 이미지"),
   ).toBeInTheDocument()
-  expect(within(selectedStoreCard!).getByText("할인 중")).toBeInTheDocument()
   expect(
-    within(selectedStoreCard!).getByText("1개 · 할인 판매 중"),
+    within(selectedStoreCard).getByText("성수 테스트 빵집"),
   ).toBeInTheDocument()
+  expect(
+    within(selectedStoreCard).getByText("서울특별시 성동구 성수동"),
+  ).toBeInTheDocument()
+  expect(within(selectedStoreCard).getByText("할인 중")).toBeInTheDocument()
+  expect(within(selectedStoreCard).getByText("1개 판매 중")).toBeInTheDocument()
+  expect(
+    within(selectedStoreCard).getByRole("link", { name: "가게 정보 보기" }),
+  ).toHaveAttribute("href", "/stores/17")
 
   await user.click(
     within(map).getByRole("button", { name: "연남 타르트집 마커" }),
   )
+  const updatedStoreCard = screen.getByRole("article", {
+    name: "연남 타르트집",
+  })
   expect(
-    within(selectedStoreCard!).getByText("연남 타르트집"),
+    within(updatedStoreCard).getByText("연남 타르트집"),
   ).toBeInTheDocument()
   expect(
-    within(selectedStoreCard!).getByText("현재 할인 없음"),
+    within(updatedStoreCard).getByText("현재 할인 없음"),
   ).toBeInTheDocument()
   await user.click(
-    within(selectedStoreCard!).getByRole("button", {
+    within(updatedStoreCard).getByRole("button", {
       name: "연남 타르트집 간단 정보 닫기",
     }),
   )
-  expect(screen.queryByText("선택한 가게")).not.toBeInTheDocument()
+  expect(
+    screen.queryByRole("article", { name: "연남 타르트집" }),
+  ).not.toBeInTheDocument()
   expect(
     screen.queryByRole("complementary", { name: "지도 가게 목록" }),
   ).not.toBeInTheDocument()
