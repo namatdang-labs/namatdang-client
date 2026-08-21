@@ -77,10 +77,7 @@ export function StoreLocationMap({
       center,
       zoom: initialZoom,
       keyboardShortcuts: true,
-      zoomControl: true,
-      zoomControlOptions: {
-        position: maps.Position.TOP_RIGHT,
-      },
+      zoomControl: false,
     })
     const marker = new maps.Marker({
       map,

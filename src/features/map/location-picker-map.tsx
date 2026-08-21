@@ -78,10 +78,7 @@ export function LocationPickerMap({
       center,
       zoom: initialZoom,
       keyboardShortcuts: true,
-      zoomControl: true,
-      zoomControlOptions: {
-        position: maps.Position.TOP_RIGHT,
-      },
+      zoomControl: false,
     })
     lastSettledCoordinateRef.current = position
 
