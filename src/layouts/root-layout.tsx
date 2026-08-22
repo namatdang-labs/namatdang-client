@@ -16,6 +16,7 @@ import {
   hasUsableAccessToken,
   subscribeToAuthentication,
 } from "../features/auth/auth-session"
+import { PushNotificationPrompt } from "../features/push/push-notification-prompt"
 import { getSafeInternalPath } from "../shared/lib/safe-internal-path"
 
 const authenticatedRoutePrefixes = [
@@ -128,6 +129,7 @@ export function RootLayout() {
         본문 바로가기
       </a>
       <Outlet />
+      <PushNotificationPrompt />
       <ScrollRestoration />
     </>
   )
