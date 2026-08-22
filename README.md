@@ -26,6 +26,31 @@ pnpm dev
 
 기본 API 주소는 `VITE_API_BASE_URL`로 설정한다.
 
+## 공유 개발 백엔드 연결
+
+로컬 프론트엔드는 CloudFront HTTPS 주소를 통해 AWS 개발 백엔드 API를 사용한다. EC2 직접 접속이나 SSH 포트포워딩은 필요하지 않다.
+
+새로 환경 파일을 만드는 경우 `.env.example`을 복사한다.
+
+```bash
+cp .env.example .env.local
+pnpm dev
+```
+
+기존 `.env.local`을 사용 중이라면 다른 설정을 덮어쓰지 말고 `VITE_API_BASE_URL`만 다음 값으로 변경한 뒤 개발 서버를 다시 시작한다.
+
+```bash
+VITE_API_BASE_URL=https://d26hacctgb7kk5.cloudfront.net/api/v1
+```
+
+연결 상태는 공개 가게 목록 API로 확인할 수 있다.
+
+```bash
+curl -i "https://d26hacctgb7kk5.cloudfront.net/api/v1/stores?size=1"
+```
+
+`HTTP/2 200`과 JSON 응답이 반환되면 정상이다. CloudFront 도메인의 루트 경로는 API 경로가 아니므로 `404`가 반환될 수 있다. EC2 공개 주소, SSH 키 또는 AWS 자격 증명은 공유하지 않는다.
+
 ## 네이버 지도 설정
 
 고객 지도 페이지와 가게 상세에서 Web Dynamic Map을 보여 주고, 가게 등록·수정 시 Geocoding으로 주소를 위도·경도로 변환한다. 네이버 클라우드 Maps Application에서 `Web Dynamic Map`과 `Geocoding`을 활성화한다.
