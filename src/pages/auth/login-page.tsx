@@ -13,6 +13,7 @@ import {
   FieldMessage,
 } from "../../features/auth/auth-shell"
 import { saveAccessToken } from "../../features/auth/auth-session"
+import { requestPushNotificationPromptAfterLogin } from "../../features/push/push-notification-prompt-events"
 import { getSafeInternalPath } from "../../shared/lib/safe-internal-path"
 import { useDocumentTitle } from "../../shared/lib/use-document-title"
 import { Button } from "../../shared/ui/button"
@@ -50,6 +51,7 @@ export function LoginPage() {
     onSuccess: (response) => {
       queryClient.clear()
       saveAccessToken(response.accessToken)
+      requestPushNotificationPromptAfterLogin()
       navigate(getSafeRedirect(searchParams), { replace: true })
     },
   })

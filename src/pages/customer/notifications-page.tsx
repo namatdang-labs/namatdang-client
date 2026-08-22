@@ -18,6 +18,7 @@ import {
 } from "lucide-react"
 import { Link } from "react-router"
 
+import { PushNotificationControl } from "../../features/push/push-notification-control"
 import {
   customerQueryKeys,
   isUnauthorizedError,
@@ -372,6 +373,8 @@ export function NotificationsPage() {
           </Button>
         ) : null}
       </header>
+
+      <PushNotificationControl />
 
       {mutationError ? (
         <p

@@ -5,7 +5,7 @@
 ## 기술 스택
 
 - React + TypeScript + Vite
-- CSR SPA + React Router Data Mode
+- PWA + CSR SPA + React Router Data Mode
 - TanStack Query
 - Tailwind CSS v4 + shadcn/ui 방식의 소스 컴포넌트
 - React Hook Form + Zod
@@ -26,6 +26,31 @@ pnpm dev
 
 기본 API 주소는 `VITE_API_BASE_URL`로 설정한다.
 
+## 공유 개발 백엔드 연결
+
+로컬 프론트엔드는 CloudFront HTTPS 주소를 통해 AWS 개발 백엔드 API를 사용한다. EC2 직접 접속이나 SSH 포트포워딩은 필요하지 않다.
+
+새로 환경 파일을 만드는 경우 `.env.example`을 복사한다.
+
+```bash
+cp .env.example .env.local
+pnpm dev
+```
+
+기존 `.env.local`을 사용 중이라면 다른 설정을 덮어쓰지 말고 `VITE_API_BASE_URL`만 다음 값으로 변경한 뒤 개발 서버를 다시 시작한다.
+
+```bash
+VITE_API_BASE_URL=https://d26hacctgb7kk5.cloudfront.net/api/v1
+```
+
+연결 상태는 공개 가게 목록 API로 확인할 수 있다.
+
+```bash
+curl -i "https://d26hacctgb7kk5.cloudfront.net/api/v1/stores?size=1"
+```
+
+`HTTP/2 200`과 JSON 응답이 반환되면 정상이다. CloudFront 도메인의 루트 경로는 API 경로가 아니므로 `404`가 반환될 수 있다. EC2 공개 주소, SSH 키 또는 AWS 자격 증명은 공유하지 않는다.
+
 ## 네이버 지도 설정
 
 고객 지도 페이지와 가게 상세에서 Web Dynamic Map을 보여 주고, 가게 등록·수정 시 Geocoding으로 주소를 위도·경도로 변환한다. 네이버 클라우드 Maps Application에서 `Web Dynamic Map`과 `Geocoding`을 활성화한다.
@@ -42,6 +67,30 @@ VITE_NAVER_MAP_NCP_KEY_ID=발급받은_CLIENT_ID
 ```
 
 S3 배포 빌드에서는 같은 값을 GitHub Actions Repository Variable `VITE_NAVER_MAP_NCP_KEY_ID`로 추가한다.
+
+## Firebase Cloud Messaging 설정
+
+로그인 후 앱 안내에서 사용자가 알림 연결을 선택하면 브라우저 권한을 요청하고, 발급된 FCM 등록 토큰을 백엔드 `PUT /api/v1/push-tokens`에 저장한다. 알림 센터에서도 연결 상태를 확인하거나 다시 연결할 수 있다.
+
+Firebase Console의 웹 앱 설정과 Cloud Messaging의 Web Push 인증서 공개 키를 `.env.local`에 설정한다.
+
+```bash
+VITE_FIREBASE_API_KEY=
+VITE_FIREBASE_AUTH_DOMAIN=
+VITE_FIREBASE_PROJECT_ID=
+VITE_FIREBASE_STORAGE_BUCKET=
+VITE_FIREBASE_MESSAGING_SENDER_ID=
+VITE_FIREBASE_APP_ID=
+VITE_FIREBASE_VAPID_KEY=
+```
+
+위 값은 브라우저에서 사용하는 공개 설정이다. Firebase Admin 서비스 계정 개인키는 프론트 환경 변수나 저장소에 추가하지 않는다.
+
+## PWA 설정
+
+웹 앱 Manifest와 FCM 서비스 워커를 함께 사용한다. 서비스 워커는 프로덕션 빌드에서 앱 셸과 같은 출처의 정적 자산을 캐시하고, 개발 서버에서는 오래된 소스 캐시가 개발을 방해하지 않도록 캐시를 비활성화한다.
+
+로컬에서는 `pnpm build && pnpm preview`로 실행한 뒤 브라우저 개발자 도구의 Application 탭에서 Manifest, Service Worker, Cache Storage를 확인한다.
 
 ## 주요 명령어
 
